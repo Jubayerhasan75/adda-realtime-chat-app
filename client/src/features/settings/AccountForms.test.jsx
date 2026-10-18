@@ -11,10 +11,16 @@ const renderWithQuery = (ui) =>
 afterEach(() => vi.unstubAllGlobals());
 
 describe('PasswordField', () => {
-  it('never shows the password: always type=password, no reveal button', () => {
-    render(<PasswordField label="Password" defaultValue="secret-words" type="text" />);
-    expect(screen.getByLabelText('Password')).toHaveAttribute('type', 'password');
-    expect(screen.queryByRole('button')).toBeNull();
+  it('is hidden by default and starts empty; the eye shows only what was typed', async () => {
+    render(<PasswordField label="Password" />);
+    const input = screen.getByLabelText('Password');
+    expect(input).toHaveAttribute('type', 'password');
+    expect(input).toHaveValue('');
+    await userEvent.type(input, 'typed-now');
+    await userEvent.click(screen.getByRole('button', { name: 'Show password' }));
+    expect(input).toHaveAttribute('type', 'text');
+    await userEvent.click(screen.getByRole('button', { name: 'Hide password' }));
+    expect(input).toHaveAttribute('type', 'password');
   });
 });
 

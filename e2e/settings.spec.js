@@ -23,13 +23,13 @@ test('Settings: grouped sections that open as pages; change password with a conf
   await page.goBack(); // the phone's back gesture returns to the list
   await expect(page).toHaveURL('/settings');
 
-  // Password page: passwords are never shown, and the two new ones must match.
+  // Password page: every field starts empty and hidden; the two new ones must match.
   await page.getByRole('link', { name: /Password/ }).click();
   const fields = ['Current password', 'New password', 'Confirm new password'];
   for (const label of fields) {
     await expect(page.getByLabel(label, { exact: true })).toHaveAttribute('type', 'password');
+    await expect(page.getByLabel(label, { exact: true })).toHaveValue('');
   }
-  await expect(page.getByRole('button', { name: /Show password/ })).toHaveCount(0);
   const newPassword = 'blue-kettle-garden-81';
   await page.getByLabel('Current password', { exact: true }).fill(PASSWORD);
   await page.getByLabel('New password', { exact: true }).fill(newPassword);

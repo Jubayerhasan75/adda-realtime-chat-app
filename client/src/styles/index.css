@@ -87,7 +87,7 @@
     outline-offset: 2px;
   }
 
-  /* Passwords are never shown on screen: hide Edge's built-in "reveal password" eye button. */
+  /* One eye button only (ours): hide Edge's built-in "reveal password" button. */
   input[type='password']::-ms-reveal,
   input[type='password']::-ms-clear {
     display: none;
