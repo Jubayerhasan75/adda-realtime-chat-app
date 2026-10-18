@@ -8,6 +8,8 @@ function sameGroup(earlier, later) {
   return Boolean(
     earlier &&
     later &&
+    earlier.type !== 'system' &&
+    later.type !== 'system' &&
     earlier.senderId === later.senderId &&
     calendarDaysBetween(earlier.createdAt, later.createdAt) === 0 &&
     later.createdAt - earlier.createdAt < GROUP_WINDOW_MS,
@@ -35,6 +37,12 @@ export function groupMessages(messages, { currentUserId, firstUnreadId = null })
     }
     if (message.id === firstUnreadId) {
       items.push({ type: 'unread', key: 'unread-divider' });
+    }
+
+    // Group notices ("Nadia added Arif") are centered lines, not bubbles.
+    if (message.type === 'system') {
+      items.push({ type: 'system', key: message.id, message });
+      return;
     }
 
     const isFirstInGroup =

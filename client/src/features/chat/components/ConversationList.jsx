@@ -1,4 +1,4 @@
-import { SearchX } from 'lucide-react';
+import { SearchX, UsersRound } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { EmptyState } from '../../../components/ui/EmptyState.jsx';
@@ -8,6 +8,7 @@ import { useDebouncedValue } from '../../../hooks/useDebouncedValue.js';
 import { formatListTimestamp } from '../../../lib/format.js';
 import { highlightText } from '../../../lib/highlight.jsx';
 import { useMessageSearch } from '../api.js';
+import { chatTitle } from '../lib/chatInfo.js';
 import { ChatsWelcome } from './ChatsWelcome.jsx';
 import { ConversationListItem } from './ConversationListItem.jsx';
 import { ConversationPreviewDialog } from './ConversationPreviewDialog.jsx';
@@ -18,7 +19,7 @@ function MessageResults({ query, conversations }) {
   if (query.length < 2) return null;
 
   const peerName = (conversationId) =>
-    conversations.find((c) => c.id === conversationId)?.peer.displayName ?? 'Chat';
+    chatTitle(conversations.find((c) => c.id === conversationId)).name || 'Chat';
 
   return (
     <section aria-label="Messages" className="mt-2">
@@ -72,18 +73,27 @@ export function ConversationList({ conversations, currentUserId, status }) {
   const messageQuery = useDebouncedValue(filter.trim(), 300);
 
   const visible = conversations.filter(
-    ({ peer }) =>
+    (conversation) =>
       !query ||
-      peer.displayName.toLocaleLowerCase().includes(query) ||
-      (peer.username ?? '').includes(query),
+      chatTitle(conversation).name.toLocaleLowerCase().includes(query) ||
+      (conversation.peer?.username ?? '').includes(query),
   );
 
   return (
     <section aria-labelledby="chats-heading" className="flex min-h-0 flex-1 flex-col bg-surface">
       <header className="shrink-0 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3">
-        <h1 id="chats-heading" className="mb-3 text-xl font-bold tracking-tight text-text">
-          Chats
-        </h1>
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h1 id="chats-heading" className="text-xl font-bold tracking-tight text-text">
+            Chats
+          </h1>
+          <Link
+            to="/new-group"
+            className="inline-flex h-9 items-center gap-1.5 rounded-full bg-surface-muted px-3 text-sm font-medium text-text hover:bg-surface-hover"
+          >
+            <UsersRound aria-hidden="true" className="size-4" />
+            New group
+          </Link>
+        </div>
         <SearchField
           label="Search chats and messages"
           placeholder="Search"

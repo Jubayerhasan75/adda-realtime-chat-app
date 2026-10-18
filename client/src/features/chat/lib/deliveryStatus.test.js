@@ -18,4 +18,15 @@ describe('deliveryStatus', () => {
   it('falls back to "sent" before the conversation state has loaded', () => {
     expect(deliveryStatus({ seq: 1 }, undefined)).toBe('sent');
   });
+
+  it('in a group: delivered once everyone has it, seen once everyone read it', () => {
+    const nadia = { deliveredUpToSeq: 5, readUpToSeq: 5 };
+    const arif = { deliveredUpToSeq: 5, readUpToSeq: 3 };
+    const sadia = { deliveredUpToSeq: 4, readUpToSeq: 4 };
+    expect(deliveryStatus({ seq: 3 }, [nadia, arif, sadia])).toBe('seen');
+    expect(deliveryStatus({ seq: 4 }, [nadia, arif, sadia])).toBe('delivered');
+    expect(deliveryStatus({ seq: 5 }, [nadia, arif, sadia])).toBe('sent');
+    // Someone who hides read receipts: never "seen" for the group.
+    expect(deliveryStatus({ seq: 1 }, [nadia, { deliveredUpToSeq: 9 }])).toBe('delivered');
+  });
 });

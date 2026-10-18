@@ -29,7 +29,8 @@ import { TypingIndicator } from '../components/TypingIndicator.jsx';
 import { deliveryStatus } from '../lib/deliveryStatus.js';
 import { messageSummary } from '../lib/messageSummary.js';
 import { discardMessage, enqueueMessage, retryMessage, useOutbox } from '../outbox.js';
-import { createTypingNotifier, useIsTyping } from '../typingStore.js';
+import { chatTitle, nameOf } from '../lib/chatInfo.js';
+import { createTypingNotifier, useTypingUsers } from '../typingStore.js';
 
 const READ_DEBOUNCE_MS = 500;
 const FLASH_MS = 1600;
@@ -52,12 +53,15 @@ function NotFound() {
 }
 
 /** Stored messages (with ticks for mine) followed by my not-yet-confirmed ones. */
-function useVisibleMessages(history, pending, peerState, currentUserId) {
+function useVisibleMessages(history, pending, memberStates, currentUserId) {
   return useMemo(() => {
     const stored = flattenHistory(history.data).map((message) => ({
       ...message,
       createdAt: new Date(message.createdAt),
-      status: message.senderId === currentUserId ? deliveryStatus(message, peerState) : undefined,
+      status:
+        message.senderId === currentUserId && message.type !== 'system'
+          ? deliveryStatus(message, memberStates)
+          : undefined,
     }));
     const storedClientIds = new Set(stored.map((m) => m.clientMessageId));
     const unsent = pending
@@ -76,7 +80,7 @@ function useVisibleMessages(history, pending, peerState, currentUserId) {
         pending: true,
       }));
     return [...stored, ...unsent];
-  }, [history.data, pending, peerState, currentUserId]);
+  }, [history.data, pending, memberStates, currentUserId]);
 }
 
 /**
@@ -136,7 +140,8 @@ function ChatView({ conversationId }) {
   const conversation = useConversation(conversationId);
   const history = useMessageHistory(conversationId);
   const pending = useOutbox(conversationId);
-  const typing = useIsTyping(conversationId);
+  const typingIds = useTypingUsers(conversationId);
+  const typing = typingIds.length > 0;
   const editMessage = useEditMessage();
   const react = useReact();
   const unreact = useUnreact();
@@ -144,7 +149,7 @@ function ChatView({ conversationId }) {
   useEffect(() => typingNotifier.stop, [typingNotifier]);
 
   const data = conversation.data;
-  const messages = useVisibleMessages(history, pending, data?.peerState, currentUserId);
+  const messages = useVisibleMessages(history, pending, data?.memberStates, currentUserId);
   const { hasNextPage, isFetchingNextPage, fetchNextPage } = history;
   const jumpTo = useJumpToMessage({ messages, hasNextPage, isFetchingNextPage, fetchNextPage });
 
@@ -154,8 +159,10 @@ function ChatView({ conversationId }) {
   const [firstUnreadId, setFirstUnreadId] = useState(undefined);
   if (firstUnreadId === undefined && data && history.data) {
     setFirstUnreadId(
-      messages.find((m) => m.senderId !== currentUserId && m.seq > data.myState.readUpToSeq)?.id ??
-        null,
+      messages.find(
+        (m) =>
+          m.senderId !== currentUserId && m.type !== 'system' && m.seq > data.myState.readUpToSeq,
+      )?.id ?? null,
     );
   }
 
@@ -203,7 +210,8 @@ function ChatView({ conversationId }) {
     );
   }
 
-  const peerName = data.peer.displayName;
+  const peerName = chatTitle(data).name;
+  const isGroup = Boolean(data.group);
   const send = (text) => {
     if (editing) {
       editMessage.mutate(
@@ -225,7 +233,7 @@ function ChatView({ conversationId }) {
     : replyTo
       ? {
           kind: 'reply',
-          title: `Replying to ${replyTo.senderId === currentUserId ? 'yourself' : peerName}`,
+          title: `Replying to ${nameOf(data, replyTo.senderId, currentUserId, { you: 'yourself' })}`,
           text: messageSummary(replyTo),
         }
       : null;
@@ -238,7 +246,7 @@ function ChatView({ conversationId }) {
 
   return (
     <section
-      aria-label={`Chat with ${peerName}`}
+      aria-label={isGroup ? peerName : `Chat with ${peerName}`}
       className="flex min-h-0 min-w-0 flex-1 flex-col"
       // A chat's own color only changes this chat (and only for me).
       style={
@@ -248,8 +256,9 @@ function ChatView({ conversationId }) {
       }
     >
       <ChatHeader
-        peer={data.peer}
-        typing={typing}
+        conversation={data}
+        currentUserId={currentUserId}
+        typingIds={typingIds}
         showBack={!isDesktop}
         onOpenOptions={() => setOptions({ openedAt: Date.now() })}
       />
@@ -278,6 +287,7 @@ function ChatView({ conversationId }) {
         messages={messages}
         currentUserId={currentUserId}
         peerName={peerName}
+        conversation={data}
         firstUnreadId={firstUnreadId}
         hasOlder={hasNextPage}
         loadingOlder={isFetchingNextPage}
@@ -292,7 +302,13 @@ function ChatView({ conversationId }) {
         onOpenMedia={(message, index) =>
           setViewing({ items: message.attachments, startIndex: index })
         }
-        footer={typing && <TypingIndicator name={peerName} />}
+        footer={
+          typing && (
+            <TypingIndicator
+              name={isGroup ? nameOf(data, typingIds[0], currentUserId) : peerName}
+            />
+          )
+        }
       />
       {data.canMessage ? (
         <Composer
@@ -343,6 +359,7 @@ function ChatView({ conversationId }) {
         open={Boolean(options)}
         openedAt={options?.openedAt ?? 0}
         conversation={data}
+        currentUserId={currentUserId}
         onClose={() => setOptions(null)}
         onSearch={() => setSearching(true)}
       />

@@ -9,6 +9,7 @@ import { VerifyEmailNoticePage } from '../features/auth/pages/VerifyEmailNoticeP
 import { DevMailboxPage } from '../features/dev/DevMailboxPage.jsx';
 import { ChatScreen } from '../features/chat/pages/ChatScreen.jsx';
 import { ChatsPage } from '../features/chat/pages/ChatsPage.jsx';
+import { CreateGroupPage } from '../features/chat/pages/CreateGroupPage.jsx';
 import { NoChatSelected } from '../features/chat/pages/NoChatSelected.jsx';
 import { FriendsPage } from '../features/friends/FriendsPage.jsx';
 import { NotificationsPage } from '../features/notifications/NotificationsPage.jsx';
@@ -34,6 +35,7 @@ export const routes = [
               { path: ':conversationId', element: <ChatScreen /> },
             ],
           },
+          { path: 'new-group', element: <CreateGroupPage /> },
           { path: 'friends', element: <FriendsPage /> },
           { path: 'notifications', element: <NotificationsPage /> },
           settingsRoutes,

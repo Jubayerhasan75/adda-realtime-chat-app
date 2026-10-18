@@ -1,7 +1,9 @@
 import { CLIENT_EVENTS, SERVER_EVENTS, SOCKET_ERRORS } from '@chat/shared';
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
+import { useLocation, useNavigate } from 'react-router';
 import { createSocket } from '../../lib/socket.js';
+import { showToast } from '../../lib/toast.js';
 import { SESSION_KEY } from '../auth/api.js';
 import { CHAT_KEYS, insertMessage, removeMessage, upsertMessage } from '../chat/api.js';
 import { flushOutbox, startOutbox, stopOutbox } from '../chat/outbox.js';
@@ -22,6 +24,15 @@ import { setConnected, setSocket } from './socketStore.js';
  */
 export function RealtimeConnection({ userId }) {
   const queryClient = useQueryClient();
+  // The current screen, for events that must close it (read inside the socket handlers).
+  const location = useLocation();
+  const navigate = useNavigate();
+  const pathRef = useRef(location.pathname);
+  const navigateRef = useRef(navigate);
+  useEffect(() => {
+    pathRef.current = location.pathname;
+    navigateRef.current = navigate;
+  });
 
   useEffect(() => {
     const socket = createSocket();
@@ -56,7 +67,7 @@ export function RealtimeConnection({ userId }) {
     });
     // Messages arrive encrypted; they are decrypted on this device before being shown.
     socket.on(SERVER_EVENTS.MESSAGE_NEW, async ({ message }) => {
-      if (message.senderId !== userId) clearTyping(message.conversationId);
+      if (message.senderId !== userId) clearTyping(message.conversationId, message.senderId);
       insertMessage(queryClient, await openMessage(message));
       refreshConversations();
     });
@@ -82,15 +93,21 @@ export function RealtimeConnection({ userId }) {
       queryClient.invalidateQueries({ queryKey: CHAT_KEYS.conversation(conversationId) });
       refreshConversations();
     });
-    // I left or was removed from a group: it disappears.
+    // I left or was removed from a group: it disappears (and closes if it's open).
     socket.on(SERVER_EVENTS.CONVERSATION_REMOVED, ({ conversationId }) => {
       forgetGroupKeys(conversationId);
+      if (pathRef.current.startsWith(`/chats/${conversationId}`)) {
+        navigateRef.current('/chats', { replace: true });
+        showToast('You’re no longer in this group');
+      }
       queryClient.setQueryData(CHAT_KEYS.list, (list) =>
         list?.filter((conversation) => conversation.id !== conversationId),
       );
-      queryClient.removeQueries({ queryKey: CHAT_KEYS.history(conversationId) });
-      queryClient.invalidateQueries({ queryKey: CHAT_KEYS.conversation(conversationId) });
-      refreshConversations();
+      // After the chat has closed, so nothing asks the server for it again.
+      setTimeout(() => {
+        queryClient.removeQueries({ queryKey: CHAT_KEYS.history(conversationId) });
+        queryClient.removeQueries({ queryKey: CHAT_KEYS.conversation(conversationId) });
+      }, 0);
     });
     // Someone in a group is missing keys: share mine (after a short random wait, so not every
     // member's phone answers at once — the server keeps the first good copy).

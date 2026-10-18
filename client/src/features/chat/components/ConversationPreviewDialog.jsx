@@ -9,6 +9,7 @@ import { cn } from '../../../lib/cn.js';
 import { formatTime } from '../../../lib/format.js';
 import { GifImage, MediaGrid } from '../../media/components/MediaGrid.jsx';
 import { useConversationPreview, useDeleteChat } from '../api.js';
+import { chatTitle, nameOf, systemText } from '../lib/chatInfo.js';
 import { messageSummary } from '../lib/messageSummary.js';
 
 /**
@@ -28,11 +29,7 @@ export function ConversationPreviewDialog({ conversation, currentUserId, onClose
   };
 
   return (
-    <Dialog
-      open={Boolean(conversation)}
-      onClose={close}
-      title={conversation?.peer.displayName ?? ''}
-    >
+    <Dialog open={Boolean(conversation)} onClose={close} title={chatTitle(conversation).name}>
       {conversation && (
         <div className="flex flex-col gap-3">
           <p className="flex items-center gap-1.5 text-xs text-muted">
@@ -50,6 +47,13 @@ export function ConversationPreviewDialog({ conversation, currentUserId, onClose
             )}
             {preview.isError && <Alert tone="error">{preview.error.message}</Alert>}
             {preview.data?.messages.map((message) => {
+              if (message.type === 'system') {
+                return (
+                  <p key={message.id} className="text-center text-xs text-muted">
+                    {systemText(message, conversation, currentUserId)}
+                  </p>
+                );
+              }
               const isOwn = message.senderId === currentUserId;
               const hasMedia = !message.unsentAt && (message.attachments?.length || message.gif);
               return (
@@ -72,6 +76,11 @@ export function ConversationPreviewDialog({ conversation, currentUserId, onClose
                       isOwn ? 'bg-bubble-out text-on-bubble-out' : 'bg-bubble-in text-on-bubble-in',
                     )}
                   >
+                    {conversation.group && !isOwn && (
+                      <span className="block text-xs font-semibold opacity-80">
+                        {nameOf(conversation, message.senderId, currentUserId)}
+                      </span>
+                    )}
                     {message.unsentAt ? <em>Message unsent</em> : messageSummary(message)}
                     <span className="ml-2 text-[11px] opacity-70">
                       {formatTime(new Date(message.createdAt))}
@@ -112,8 +121,10 @@ export function ConversationPreviewDialog({ conversation, currentUserId, onClose
           </Button>
           {confirming && (
             <p className="text-xs text-muted">
-              Removes the chat and its messages from your list only. {conversation.peer.displayName}{' '}
-              keeps theirs.
+              Removes the chat and its messages from your list only.{' '}
+              {conversation.group
+                ? 'Everyone else keeps theirs.'
+                : `${chatTitle(conversation).name} keeps theirs.`}
             </p>
           )}
           {deleteChat.isError && <Alert tone="error">{deleteChat.error.message}</Alert>}

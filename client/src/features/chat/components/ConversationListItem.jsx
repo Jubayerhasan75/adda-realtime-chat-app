@@ -6,26 +6,42 @@ import { cn } from '../../../lib/cn.js';
 import { formatListTimestamp } from '../../../lib/format.js';
 import { useLongPress } from '../../../hooks/useLongPress.js';
 import { usePresence } from '../../realtime/presenceStore.js';
-import { useIsTyping } from '../typingStore.js';
+import { useTypingUsers } from '../typingStore.js';
+import { chatTitle, nameOf, systemText, typingText } from '../lib/chatInfo.js';
 import { messageSummary } from '../lib/messageSummary.js';
 
+/** The grey line under the name: who said what last (or the group notice). */
+function lastLine(conversation, currentUserId) {
+  const { lastMessage } = conversation;
+  if (!lastMessage) return 'No messages yet';
+  if (lastMessage.type === 'system') return systemText(lastMessage, conversation, currentUserId);
+  const mine = lastMessage.senderId === currentUserId;
+  const who = mine
+    ? 'You: '
+    : conversation.group
+      ? `${nameOf(conversation, lastMessage.senderId, currentUserId).split(' ')[0]}: `
+      : '';
+  return `${who}${messageSummary(lastMessage)}`;
+}
+
 /**
- * Long-press (or right-click / Shift+F10) opens a read-only preview instead of the chat.
- * @param {{ conversation: { id: string, peer: object, unreadCount: number, lastMessage: object | null }, currentUserId: string, onPreview?: (c: object) => void }} props
+ * One chat (a friend or a group). Long-press (or right-click / Shift+F10) opens a read-only
+ * preview instead of the chat.
+ * @param {{ conversation: object, currentUserId: string, onPreview?: (c: object) => void }} props
  */
 export function ConversationListItem({ conversation, currentUserId, onPreview }) {
   const { peer, unreadCount, lastMessage } = conversation;
-  const typing = useIsTyping(conversation.id);
-  const presence = usePresence(peer.id);
+  const title = chatTitle(conversation);
+  const typingIds = useTypingUsers(conversation.id);
+  const typing = typingIds.length > 0;
+  const presence = usePresence(peer?.id);
   const longPress = useLongPress(() => onPreview?.(conversation));
   const muted = Boolean(conversation.myState?.muted);
   const hasUnread = unreadCount > 0;
   const sentAt = lastMessage ? new Date(lastMessage.createdAt) : null;
   const preview = typing
-    ? 'typing…'
-    : lastMessage
-      ? `${lastMessage.senderId === currentUserId ? 'You: ' : ''}${messageSummary(lastMessage)}`
-      : 'No messages yet';
+    ? typingText(conversation, typingIds, currentUserId)
+    : lastLine(conversation, currentUserId);
 
   return (
     <NavLink
@@ -38,7 +54,7 @@ export function ConversationListItem({ conversation, currentUserId, onPreview })
         )
       }
     >
-      <Avatar name={peer.displayName} src={peer.avatar} online={Boolean(presence.online)} />
+      <Avatar name={title.name} src={title.avatar} online={Boolean(presence.online)} />
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-2">
           <span
@@ -47,7 +63,7 @@ export function ConversationListItem({ conversation, currentUserId, onPreview })
               hasUnread ? 'font-semibold' : 'font-medium',
             )}
           >
-            {peer.displayName}
+            {title.name}
           </span>
           {sentAt && (
             <time

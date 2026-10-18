@@ -1,5 +1,6 @@
 import { CHAT_ACCENTS } from '@chat/shared';
-import { MessageSquareX, Search, Trash2 } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { LogOut, MessageSquareX, Search, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Alert } from '../../../components/ui/Alert.jsx';
@@ -7,7 +8,15 @@ import { Avatar } from '../../../components/ui/Avatar.jsx';
 import { Button } from '../../../components/ui/Button.jsx';
 import { Dialog } from '../../../components/ui/Dialog.jsx';
 import { cn } from '../../../lib/cn.js';
-import { useClearChat, useDeleteChat, useUpdateChatSettings } from '../api.js';
+import {
+  CHAT_KEYS,
+  groupRequests,
+  useClearChat,
+  useDeleteChat,
+  useGroupAction,
+  useUpdateChatSettings,
+} from '../api.js';
+import { GroupInfo } from './GroupInfo.jsx';
 
 const ACCENT_LABELS = {
   teakhelet: 'Purple',
@@ -44,19 +53,30 @@ function muteValue(mutedUntil, now) {
  * Settings of one chat that only affect me: mute, color, clear history; plus in-chat search.
  * `openedAt` is captured when the dialog opens so "muted until" is evaluated outside rendering.
  */
-export function ChatOptionsDialog({ open, openedAt, conversation, onClose, onSearch }) {
+export function ChatOptionsDialog({
+  open,
+  openedAt,
+  conversation,
+  currentUserId,
+  onClose,
+  onSearch,
+}) {
   const update = useUpdateChatSettings();
   const clear = useClearChat();
   const [confirmClear, setConfirmClear] = useState(false);
   const deleteChat = useDeleteChat();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const navigate = useNavigate();
-  const { peer, myState, id } = conversation;
+  const leave = useGroupAction();
+  const [confirmLeave, setConfirmLeave] = useState(false);
+  const queryClient = useQueryClient();
+  const { peer, myState, id, group } = conversation;
   const currentMute = muteValue(myState.mutedUntil, openedAt);
 
   const close = () => {
     setConfirmClear(false);
     setConfirmDelete(false);
+    setConfirmLeave(false);
     update.reset();
     clear.reset();
     onClose();
@@ -66,15 +86,19 @@ export function ChatOptionsDialog({ open, openedAt, conversation, onClose, onSea
     update.mutate({ conversationId: id, mutedUntil: mutedUntilFor(option) });
 
   return (
-    <Dialog open={open} onClose={close} title="Chat options">
+    <Dialog open={open} onClose={close} title={group ? 'Group info' : 'Chat options'}>
       <div className="flex flex-col gap-5">
-        <div className="flex items-center gap-3">
-          <Avatar name={peer.displayName} src={peer.avatar} size="lg" />
-          <div className="min-w-0">
-            <p className="truncate font-semibold text-text">{peer.displayName}</p>
-            {peer.username && <p className="truncate text-sm text-muted">@{peer.username}</p>}
+        {group ? (
+          <GroupInfo conversation={conversation} currentUserId={currentUserId} />
+        ) : (
+          <div className="flex items-center gap-3">
+            <Avatar name={peer.displayName} src={peer.avatar} size="lg" />
+            <div className="min-w-0">
+              <p className="truncate font-semibold text-text">{peer.displayName}</p>
+              {peer.username && <p className="truncate text-sm text-muted">@{peer.username}</p>}
+            </div>
           </div>
-        </div>
+        )}
         {(update.isError || clear.isError || deleteChat.isError) && (
           <Alert tone="error">{(update.error ?? clear.error ?? deleteChat.error).message}</Alert>
         )}
@@ -124,7 +148,7 @@ export function ChatOptionsDialog({ open, openedAt, conversation, onClose, onSea
             </p>
           )}
           <p className="mt-2 text-xs text-muted">
-            Only affects you. Push notifications arrive in a later update; the setting is saved now.
+            Only affects you: no notifications from this chat while it’s muted.
           </p>
         </fieldset>
 
@@ -189,6 +213,29 @@ export function ChatOptionsDialog({ open, openedAt, conversation, onClose, onSea
           <MessageSquareX aria-hidden="true" className="size-4" />
           {confirmDelete ? 'Tap again to delete this chat for you' : 'Delete chat'}
         </Button>
+        {group && (
+          <Button
+            variant={confirmLeave ? 'danger' : 'ghost'}
+            loading={leave.isPending}
+            onClick={() =>
+              confirmLeave
+                ? leave.mutate(() => groupRequests.leave(id), {
+                    onSuccess: () => {
+                      queryClient.setQueryData(CHAT_KEYS.list, (list) =>
+                        list?.filter((item) => item.id !== id),
+                      );
+                      close();
+                      navigate('/chats', { replace: true });
+                    },
+                  })
+                : setConfirmLeave(true)
+            }
+          >
+            <LogOut aria-hidden="true" className="size-4" />
+            {confirmLeave ? 'Tap again to leave the group' : 'Leave group'}
+          </Button>
+        )}
+        {leave.isError && <Alert tone="error">{leave.error.message}</Alert>}
       </div>
     </Dialog>
   );

@@ -7,42 +7,74 @@ const TYPING_EXPIRY_MS = 6_000;
 const SEND_INTERVAL_MS = 3_000;
 const IDLE_STOP_MS = 5_000;
 
-const typingTimers = new Map(); // conversationId → expiry timer
+const typing = new Map(); // conversationId → Map<userId, expiry timer>
+const snapshots = new Map(); // conversationId → user ids (stable between changes)
 const listeners = new Set();
+const NOBODY = Object.freeze([]);
 
-function emit() {
+function emit(conversationId) {
+  snapshots.delete(conversationId);
   listeners.forEach((listener) => listener());
 }
 
 /** Called for every `typing:update` from the server. */
-export function receiveTyping({ conversationId, isTyping }) {
-  clearTimeout(typingTimers.get(conversationId));
+export function receiveTyping({ conversationId, userId = 'peer', isTyping }) {
+  const people = typing.get(conversationId) ?? new Map();
+  clearTimeout(people.get(userId));
   if (isTyping) {
-    typingTimers.set(
-      conversationId,
-      setTimeout(() => clearTyping(conversationId), TYPING_EXPIRY_MS),
+    people.set(
+      userId,
+      setTimeout(() => stopTyping(conversationId, userId), TYPING_EXPIRY_MS),
     );
   } else {
-    typingTimers.delete(conversationId);
+    people.delete(userId);
   }
-  emit();
+  if (people.size) typing.set(conversationId, people);
+  else typing.delete(conversationId);
+  emit(conversationId);
 }
 
-/** Clears an indicator (expired, or the person's message arrived). */
-export function clearTyping(conversationId) {
-  clearTimeout(typingTimers.get(conversationId));
-  if (typingTimers.delete(conversationId)) emit();
+function stopTyping(conversationId, userId) {
+  const people = typing.get(conversationId);
+  if (!people?.has(userId)) return;
+  clearTimeout(people.get(userId));
+  people.delete(userId);
+  if (people.size === 0) typing.delete(conversationId);
+  emit(conversationId);
 }
 
-/** True while the other person is typing in this conversation. */
+/** Clears an indicator (expired, or the person's message arrived). Without a user: everyone. */
+export function clearTyping(conversationId, userId) {
+  if (userId) {
+    stopTyping(conversationId, userId);
+    return;
+  }
+  const people = typing.get(conversationId);
+  if (!people) return;
+  people.forEach((timer) => clearTimeout(timer));
+  typing.delete(conversationId);
+  emit(conversationId);
+}
+
+function subscribe(listener) {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+/** Who is typing in this conversation right now (user ids). */
+export function useTypingUsers(conversationId) {
+  return useSyncExternalStore(subscribe, () => {
+    if (!typing.has(conversationId)) return NOBODY;
+    if (!snapshots.has(conversationId)) {
+      snapshots.set(conversationId, [...typing.get(conversationId).keys()]);
+    }
+    return snapshots.get(conversationId);
+  });
+}
+
+/** True while someone else is typing in this conversation. */
 export function useIsTyping(conversationId) {
-  return useSyncExternalStore(
-    (listener) => {
-      listeners.add(listener);
-      return () => listeners.delete(listener);
-    },
-    () => typingTimers.has(conversationId),
-  );
+  return useSyncExternalStore(subscribe, () => typing.has(conversationId));
 }
 
 /**

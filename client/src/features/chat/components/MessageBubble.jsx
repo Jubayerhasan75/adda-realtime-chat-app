@@ -5,10 +5,11 @@ import { formatTime } from '../../../lib/format.js';
 import { highlightText } from '../../../lib/highlight.jsx';
 import { GifImage, MediaGrid } from '../../media/components/MediaGrid.jsx';
 import { messageSummary } from '../lib/messageSummary.js';
+import { Avatar } from '../../../components/ui/Avatar.jsx';
 import { MessageStatus } from './MessageStatus.jsx';
 
 /** Reaction chips under a bubble: one per emoji with a count; tapping toggles my reaction. */
-function Reactions({ reactions, currentUserId, onToggle, isOwn }) {
+function Reactions({ reactions, currentUserId, onToggle, isOwn, indented }) {
   const groups = new Map();
   for (const { emoji, userId } of reactions) {
     const group = groups.get(emoji) ?? { emoji, count: 0, mine: false };
@@ -17,7 +18,9 @@ function Reactions({ reactions, currentUserId, onToggle, isOwn }) {
     groups.set(emoji, group);
   }
   return (
-    <div className={cn('-mt-1.5 flex gap-1', isOwn ? 'mr-2 justify-end' : 'ml-2')}>
+    <div
+      className={cn('-mt-1.5 flex gap-1', isOwn ? 'mr-2 justify-end' : indented ? 'ml-12' : 'ml-2')}
+    >
       {[...groups.values()].map(({ emoji, count, mine }) => (
         <button
           key={emoji}
@@ -77,6 +80,8 @@ export function MessageBubble({
   isLastInGroup,
   currentUserId,
   peerName = 'Them',
+  nameOf,
+  sender = null,
   highlightQuery = '',
   onRetry,
   onDiscard,
@@ -89,7 +94,10 @@ export function MessageBubble({
   const unsent = Boolean(message.unsentAt);
   const canOpenMenu = Boolean(onOpenMenu) && !message.pending;
   const longPress = useLongPress(() => onOpenMenu?.(message));
-  const replyAuthor = message.replyTo?.senderId === currentUserId ? 'You' : peerName;
+  const replyAuthor =
+    message.replyTo?.senderId === currentUserId
+      ? 'You'
+      : (nameOf?.(message.replyTo?.senderId) ?? peerName);
   const attachments = unsent ? [] : (message.attachments ?? []);
   const gif = unsent ? null : message.gif;
   const hasMedia = attachments.length > 0 || Boolean(gif);
@@ -103,7 +111,16 @@ export function MessageBubble({
         isFirstInGroup ? 'mt-2' : 'mt-0.5',
       )}
     >
+      {/* Groups: the sender's name above their first bubble, like Messenger. */}
+      {sender && isFirstInGroup && (
+        <span className="mb-0.5 ml-12 text-xs font-medium text-muted">{sender.name}</span>
+      )}
       <div className={cn('flex max-w-full items-center gap-1', isOwn && 'flex-row-reverse')}>
+        {sender && (
+          <span className="mr-1 flex w-8 shrink-0 self-end">
+            {isLastInGroup && <Avatar name={sender.name} src={sender.avatar} size="sm" />}
+          </span>
+        )}
         <div
           {...(canOpenMenu ? longPress : {})}
           className={cn(
@@ -188,6 +205,7 @@ export function MessageBubble({
           reactions={message.reactions}
           currentUserId={currentUserId}
           isOwn={isOwn}
+          indented={Boolean(sender)}
           onToggle={onToggleReaction && ((emoji, mine) => onToggleReaction(message, emoji, mine))}
         />
       )}

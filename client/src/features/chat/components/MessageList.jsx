@@ -2,6 +2,7 @@ import { ChevronDown } from 'lucide-react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Spinner } from '../../../components/ui/Spinner.jsx';
 import { formatDayLabel } from '../../../lib/format.js';
+import { nameOf, peopleOf, systemText } from '../lib/chatInfo.js';
 import { groupMessages } from '../lib/groupMessages.js';
 import { MessageBubble } from './MessageBubble.jsx';
 
@@ -29,6 +30,7 @@ export function MessageList({
   onRetry,
   onDiscard,
   peerName,
+  conversation,
   highlightQuery,
   onOpenMenu,
   onToggleReaction,
@@ -37,6 +39,7 @@ export function MessageList({
 }) {
   const scrollRef = useRef(null);
   const unreadRef = useRef(null);
+  const isGroup = Boolean(conversation?.group);
   const items = useMemo(
     () => groupMessages(messages, { currentUserId, firstUnreadId }),
     [messages, currentUserId, firstUnreadId],
@@ -170,7 +173,20 @@ export function MessageList({
                 </div>
               );
             }
+            if (item.type === 'system') {
+              return (
+                <p
+                  key={item.key}
+                  id={`message-${item.message.id}`}
+                  className="mx-6 my-2 text-center text-xs text-muted"
+                >
+                  {systemText(item.message, conversation, currentUserId)}
+                </p>
+              );
+            }
             const { message } = item;
+            const sender =
+              isGroup && !item.isOwn ? peopleOf(conversation).get(message.senderId) : null;
             return (
               <MessageBubble
                 key={item.key}
@@ -180,6 +196,15 @@ export function MessageList({
                 isLastInGroup={item.isLastInGroup}
                 currentUserId={currentUserId}
                 peerName={peerName}
+                nameOf={(userId) => nameOf(conversation, userId, currentUserId)}
+                sender={
+                  isGroup && !item.isOwn
+                    ? {
+                        name: sender?.displayName ?? 'Former member',
+                        avatar: sender?.avatar ?? null,
+                      }
+                    : null
+                }
                 highlightQuery={highlightQuery}
                 onOpenMenu={onOpenMenu}
                 onToggleReaction={onToggleReaction}

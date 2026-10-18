@@ -298,3 +298,33 @@ export function useConversationPreview(conversationId) {
     staleTime: 0,
   });
 }
+
+/**
+ * Group changes (docs/GROUPS.md): rename, photo, members, admins, leave. The server announces
+ * them to every member; here my own views refresh right away.
+ */
+export function useGroupAction() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (action) => action(),
+    onSuccess: async (result, action) => {
+      if (result?.id) {
+        queryClient.setQueryData(CHAT_KEYS.conversation(result.id), await openConversation(result));
+      }
+      queryClient.invalidateQueries({ queryKey: CHAT_KEYS.conversations });
+      return action;
+    },
+  });
+}
+
+export const groupRequests = {
+  rename: (groupId, name) =>
+    apiRequest(`/api/groups/${groupId}`, { method: 'PATCH', body: { name } }),
+  setPhoto: (groupId, photoAttachmentId) =>
+    apiRequest(`/api/groups/${groupId}`, { method: 'PATCH', body: { photoAttachmentId } }),
+  setRole: (groupId, userId, role) =>
+    apiRequest(`/api/groups/${groupId}/members/${userId}`, { method: 'PATCH', body: { role } }),
+  remove: (groupId, userId) =>
+    apiRequest(`/api/groups/${groupId}/members/${userId}`, { method: 'DELETE' }),
+  leave: (groupId) => apiRequest(`/api/groups/${groupId}/leave`, { method: 'POST' }),
+};

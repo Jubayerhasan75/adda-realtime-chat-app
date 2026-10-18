@@ -4,22 +4,46 @@ import { Avatar } from '../../../components/ui/Avatar.jsx';
 import { IconButton } from '../../../components/ui/IconButton.jsx';
 import { useNow } from '../../../hooks/useNow.js';
 import { formatLastSeen } from '../../../lib/format.js';
-import { usePresence } from '../../realtime/presenceStore.js';
+import { usePresence, useOnlineIds } from '../../realtime/presenceStore.js';
+import { chatTitle, typingText } from '../lib/chatInfo.js';
 
-function presenceText(presence, typing, now) {
-  if (typing) return 'typing…';
+function presenceText(presence, now) {
   if (presence.online) return 'online';
   if (presence.lastSeenAt) return formatLastSeen(new Date(presence.lastSeenAt), now);
   return ''; // hidden by privacy, or not a friend
 }
 
+/** "4 members · 2 online" for a group. */
+function groupStatus(conversation, online) {
+  const members = conversation.group.members;
+  const active = members.filter((member) => online.has(member.id)).length;
+  return `${members.length} members${active ? ` · ${active} online` : ''}`;
+}
+
 /**
- * @param {{ peer: object, typing?: boolean, showBack: boolean, onOpenOptions?: () => void }} props
+ * Chat title bar: the friend (with online / last seen) or the group (with its member count).
+ * Tapping the name opens the chat's options / group info.
+ * @param {{ conversation: object, currentUserId: string, typingIds?: string[],
+ *   showBack: boolean, onOpenOptions?: () => void }} props
  */
-export function ChatHeader({ peer, typing = false, showBack, onOpenOptions }) {
-  const presence = usePresence(peer.id);
+export function ChatHeader({
+  conversation,
+  currentUserId,
+  typingIds = [],
+  showBack,
+  onOpenOptions,
+}) {
+  const presence = usePresence(conversation.peer?.id);
+  const online = useOnlineIds();
   const now = useNow();
-  const status = presenceText(presence, typing, now);
+  const title = chatTitle(conversation);
+  const typing = typingIds.length > 0;
+  const status = typing
+    ? typingText(conversation, typingIds, currentUserId)
+    : title.isGroup
+      ? groupStatus(conversation, online)
+      : presenceText(presence, now);
+
   return (
     <header className="flex min-h-(--header-height) shrink-0 items-center gap-2 border-b border-border bg-surface px-2 pt-[env(safe-area-inset-top)] sm:px-3">
       {showBack && (
@@ -31,23 +55,28 @@ export function ChatHeader({ peer, typing = false, showBack, onOpenOptions }) {
           <ArrowLeft aria-hidden="true" className="size-5" />
         </Link>
       )}
-      <Avatar
-        name={peer.displayName}
-        src={peer.avatar}
-        online={Boolean(presence.online)}
-        size="sm"
-      />
-      <div className="min-w-0 flex-1 pl-1">
-        <h1 className="truncate text-[15px] font-semibold text-text">{peer.displayName}</h1>
-        <p
-          aria-live="polite"
-          className={typing ? 'truncate text-xs text-link' : 'truncate text-xs text-muted'}
-        >
-          {status}
-        </p>
+      {/* Tapping the name also opens the options (keyboard users have the ⋮ button). */}
+      <div
+        onClick={onOpenOptions}
+        className={
+          onOpenOptions
+            ? 'flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-lg py-1 hover:bg-surface-hover'
+            : 'flex min-w-0 flex-1 items-center gap-2 py-1'
+        }
+      >
+        <Avatar name={title.name} src={title.avatar} online={Boolean(presence.online)} size="sm" />
+        <div className="min-w-0 flex-1 pl-1">
+          <h1 className="truncate text-[15px] font-semibold text-text">{title.name}</h1>
+          <p
+            aria-live="polite"
+            className={typing ? 'truncate text-xs text-link' : 'truncate text-xs text-muted'}
+          >
+            {status}
+          </p>
+        </div>
       </div>
       {onOpenOptions && (
-        <IconButton label="Chat options" onClick={onOpenOptions}>
+        <IconButton label={title.isGroup ? 'Group info' : 'Chat options'} onClick={onOpenOptions}>
           <EllipsisVertical aria-hidden="true" className="size-5" />
         </IconButton>
       )}
