@@ -43,6 +43,13 @@ The bar is WhatsApp/Messenger-level smoothness. Before finishing **every** phase
 - [x] "Install Adda" is one tap on the Settings page (iPhone: opens the Add to Home Screen guide).
 - [x] New accounts see "Welcome to Adda" + Find friends instead of an empty chat list.
 
+## Groups
+
+- [x] "New group" is labelled on the Chats screen; Create stays off until a name and 2 friends are chosen, and says how many more are needed.
+- [x] Sender names above and photos beside other people's messages; group notices are quiet centered lines.
+- [x] Header shows "N members · M online" or "Nadia is typing…"; tapping the name opens Group info.
+- [x] A removed member's open chat closes with "You're no longer in this group" instead of an error.
+
 ## Popups
 
 - [x] Every popup (menus, options, photo viewer, emoji panel) closes with the phone's Back button.

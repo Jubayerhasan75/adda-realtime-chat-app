@@ -2,6 +2,20 @@
 
 ## Current phase: 10 — end-to-end encryption, parts 1–2 done (keys, encrypted messages); next: part 3 (encrypted photos/videos + Download), part 4 (notification previews, safety numbers), then the security review
 
+### 2026-10-18 — Group chats, Notifications tab, Friends sections
+
+- **Groups** (docs/GROUPS.md): up to 50 people, admins manage members/name/photo, anyone can leave,
+  new members read the full history. End-to-end encrypted with per-group key epochs locked for
+  each member (ECDH + HKDF + AES-GCM); a new key after anyone leaves. Server, client crypto and
+  screens each committed separately; e2e/groups.spec.js covers create → chat → add (history) →
+  remove (new key) in four real browsers.
+- **Notifications tab** with friend activity and security alerts (sign-in on another device,
+  password/email/username change, encryption reset).
+- **Friends tab** sections: Active, Requests, Friends; one search for friends and people.
+- Recovery password rule: at least 6 characters with upper, lower, number and symbol.
+- Password eye toggle restored (fields start empty); Settings without borders; Install button.
+- Tests: 377 unit/integration, 45 E2E passing.
+
 ### 2026-10-18 — Settings redesign, welcome screen, delete chat
 
 - Settings grouped like Messenger: profile card → Edit profile (photo, Name, Username, Bio pages), Install Adda (one tap), Preferences (Appearance, Notifications, Privacy), Account (Email, Password, Where you’re signed in), About & updates, Log out, Delete account. Each opens as its own page (`/settings/...`) with a back arrow.

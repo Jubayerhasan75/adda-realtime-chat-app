@@ -1,6 +1,6 @@
 # Adda
 
-**Adda** is a private, real-time, one-to-one messenger for friends. Messages are **end-to-end encrypted**: only the two people in a chat can read them. Not the server, and not the developer.
+**Adda** is a private, real-time messenger for friends — one-to-one chats and **groups of up to 50 people**. Messages are **end-to-end encrypted**: only the people in a chat can read them. Not the server, and not the developer.
 
 It runs in any modern browser and installs like a native app on **Android, iPhone/iPad (iOS 16.4+), Windows, macOS and Linux**. You get a home-screen icon, a full-screen window, push notifications and in-app updates, with no app store needed.
 
@@ -42,7 +42,7 @@ It runs in any modern browser and installs like a native app on **Android, iPhon
 
 ### Messaging
 
-- Real-time one-to-one chat over WebSockets, with messages kept in order.
+- Real-time one-to-one and group chat over WebSockets, with messages kept in order.
 - **Ticks:** sent → delivered (reached a device of your friend) → seen.
 - Typing indicator, **online status** and **last seen**.
 - **Reactions** with any emoji, **reply** to a specific message, **edit**, **unsend** for everyone, **delete for me**.
@@ -53,6 +53,15 @@ It runs in any modern browser and installs like a native app on **Android, iPhon
 - Unread counts and badges, a "jump to newest" button with a count of new messages, and per-chat **mute** and **chat colour**.
 - **Long-press a chat** to peek at the latest messages and photos without marking them as seen, or to **delete the whole chat** from your list.
 - **Clear chat** and **delete chat**. Both affect only your own view; your friend keeps theirs.
+
+### Groups
+
+- Create a group with a name and at least two friends (up to 50 people).
+- Everything from one-to-one chats works in groups: photos, videos, GIFs, reactions, replies, edits, unsend, pins, typing ("Nadia is typing…") and ticks that turn **seen** once everyone has read.
+- Sender names and photos beside messages; changes appear as small notices ("Nadia added Arif").
+- **Admins** add friends, remove people, rename the group, change its photo and make others admin. Anyone can leave; if the last admin leaves, the longest-standing member becomes admin.
+- **New members can read the whole history**, including photos and videos.
+- End-to-end encrypted with a group key that is made on a member's phone and handed to each member locked with their own key. When someone leaves or is removed, a new key is made, so they can't read anything sent afterwards.
 
 ### Notifications and app
 
@@ -207,19 +216,19 @@ Full threat model, session policy and security checklist: [docs/SECURITY.md](doc
 
 ## Database
 
-MongoDB with **15 collections**, strict schemas and indexes chosen for each query the app makes:
+MongoDB with **16 collections**, strict schemas and indexes chosen for each query the app makes:
 
-| Collection                           | Holds                                                                                              |
-| ------------------------------------ | -------------------------------------------------------------------------------------------------- |
-| `User`                               | Profile, username, settings (theme, privacy, notifications)                                        |
-| `Session`, `AuthToken`               | Hashed session tokens; one-time email tokens                                                       |
-| `Friendship`, `Block`                | Friend requests and friendships; blocks                                                            |
-| `Conversation`, `ConversationMember` | One-to-one chats; each person's own state (unread, delivered/seen position, mute, colour, cleared) |
-| `Message`                            | Encrypted envelopes, sequence number, reactions, pins, edits, unsend                               |
-| `Attachment`                         | Uploaded media and its lifecycle (pending → ready → attached → deleted)                            |
-| `IdentityKey`, `KeyBackup`           | Public encryption keys; password-locked key backups                                                |
-| `PushSubscription`, `Notification`   | Devices that receive push; the in-app notification feed                                            |
-| `Report`, `AuditEvent`               | Abuse reports; security log                                                                        |
+| Collection                                | Holds                                                                                                               |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `User`                                    | Profile, username, settings (theme, privacy, notifications)                                                         |
+| `Session`, `AuthToken`                    | Hashed session tokens; one-time email tokens                                                                        |
+| `Friendship`, `Block`                     | Friend requests and friendships; blocks                                                                             |
+| `Conversation`, `ConversationMember`      | One-to-one chats and groups; each person's own state (role, unread, delivered/seen position, mute, colour, cleared) |
+| `Message`                                 | Encrypted envelopes, sequence number, reactions, pins, edits, unsend                                                |
+| `Attachment`                              | Uploaded media and its lifecycle (pending → ready → attached → deleted)                                             |
+| `IdentityKey`, `KeyBackup`, `GroupKeyBox` | Public encryption keys; password-locked key backups; group keys locked for each member                              |
+| `PushSubscription`, `Notification`        | Devices that receive push; the in-app notification feed                                                             |
+| `Report`, `AuditEvent`                    | Abuse reports; security log                                                                                         |
 
 - **Per-chat sequence numbers** keep messages in perfect order and make reconnect catch-up exact.
 - **Transactions** for multi-step writes (sending a message, accepting a friend request, deleting an account), so data is never left half-written.
@@ -262,6 +271,7 @@ Adda is built to feel like WhatsApp or Messenger on a phone:
 | ------------------------------------ | ----------------------------------------------------- |
 | [ARCHITECTURE](docs/ARCHITECTURE.md) | Stack, diagrams, real-time design, PWA and deployment |
 | [E2EE](docs/E2EE.md)                 | End-to-end encryption design and its limits           |
+| [GROUPS](docs/GROUPS.md)             | Group chats: roles, encryption with group keys        |
 | [SECURITY](docs/SECURITY.md)         | Threat model, session policy, security checklist      |
 | [DATABASE](docs/DATABASE.md)         | Collections, indexes, ER diagram, retention           |
 | [API](docs/API.md)                   | REST endpoints and real-time event contract           |
