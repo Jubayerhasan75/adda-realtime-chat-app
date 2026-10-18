@@ -88,3 +88,41 @@ export async function promptInstall() {
   const { outcome } = await prompt.userChoice;
   set({ installPrompt: null, installed: outcome === 'accepted' });
 }
+
+/**
+ * Where this browser keeps its own "Install" command, for when it doesn't let the page open the
+ * install dialog (Safari, Firefox, or after the user dismissed the browser's offer).
+ */
+export function browserInstallSteps(userAgent = navigator.userAgent) {
+  if (/Android/.test(userAgent)) {
+    if (/SamsungBrowser/.test(userAgent)) {
+      return ['Tap the menu (☰) at the bottom.', 'Tap “Add page to” → “Home screen”.'];
+    }
+    return [
+      'Tap the browser menu (⋮) at the top right.',
+      'Tap “Install app” or “Add to Home screen”.',
+    ];
+  }
+  if (/Edg\//.test(userAgent)) {
+    return [
+      'Click the “App available” icon at the right end of the address bar,',
+      'or open the menu (⋯) → “Apps” → “Install Adda”.',
+    ];
+  }
+  if (/Firefox\//.test(userAgent)) {
+    return [
+      'Firefox on computers can’t install web apps.',
+      'Open Adda in Chrome or Edge to install it.',
+    ];
+  }
+  if (/Chrome\//.test(userAgent)) {
+    return [
+      'Click the install icon at the right end of the address bar,',
+      'or open the menu (⋮) → “Cast, save and share” → “Install page as app”.',
+    ];
+  }
+  if (/Safari\//.test(userAgent) && /Macintosh/.test(userAgent)) {
+    return ['In the menu bar, choose “File” → “Add to Dock”.'];
+  }
+  return ['Open your browser’s menu and choose “Install app” or “Add to Home screen”.'];
+}

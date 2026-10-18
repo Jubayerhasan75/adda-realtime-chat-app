@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { InstallAppSection } from './InstallAppSection.jsx';
 import { CURRENT_RELEASE } from '../../releaseNotes.js';
-import { listenForInstallPrompt, setUpdateReady } from './pwaStore.js';
+import { browserInstallSteps, listenForInstallPrompt, setUpdateReady } from './pwaStore.js';
 import { UpdateBanner } from './UpdateBanner.jsx';
 import { WhatsNew } from './WhatsNew.jsx';
 
@@ -59,6 +59,28 @@ describe('installable app', () => {
     expect(screen.getByText(/iOS 16.4 or newer/)).toBeInTheDocument();
   });
 
+  it('without the browser’s offer, the button shows where this browser installs apps', async () => {
+    stubDevice({
+      userAgent:
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/140.0 Safari/537.36 Edg/140.0',
+    });
+    render(<InstallAppSection />);
+    await userEvent.click(screen.getByRole('button', { name: 'Install Adda' }));
+    expect(screen.getByRole('status')).toHaveTextContent('“Apps” → “Install Adda”');
+  });
+
+  it('knows each browser’s own install command', () => {
+    expect(browserInstallSteps('Mozilla/5.0 (Linux; Android 15) Chrome/140.0 Mobile')[1]).toMatch(
+      /Install app/,
+    );
+    expect(browserInstallSteps('Mozilla/5.0 (Windows NT 10.0) Gecko Firefox/140.0')[1]).toMatch(
+      /Chrome or Edge/,
+    );
+    expect(
+      browserInstallSteps('Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) Version/18.0 Safari/605.1'),
+    ).toEqual(['In the menu bar, choose “File” → “Add to Dock”.']);
+  });
+
   it('says so when already running as the installed app', () => {
     stubDevice({ standalone: true });
     render(<InstallAppSection />);
@@ -76,7 +98,7 @@ describe('installable app', () => {
     });
     act(() => window.dispatchEvent(prompt));
 
-    await userEvent.click(screen.getByRole('button', { name: 'Install app' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Install Adda' }));
     expect(prompt.prompt).toHaveBeenCalled();
     expect(await screen.findByText('The app is installed on this device.')).toBeInTheDocument();
   });

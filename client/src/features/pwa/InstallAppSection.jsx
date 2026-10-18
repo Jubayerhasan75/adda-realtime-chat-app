@@ -1,14 +1,48 @@
 import { CheckCircle2, Download, Share, SquarePlus } from 'lucide-react';
+import { useState } from 'react';
 import { Button } from '../../components/ui/Button.jsx';
-import { isIos, isStandalone, promptInstall, usePwa } from './pwaStore.js';
+import { browserInstallSteps, isIos, isStandalone, promptInstall, usePwa } from './pwaStore.js';
+
+function Step({ number, children }) {
+  return (
+    <li className="flex items-start gap-2">
+      <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary-soft text-xs font-semibold text-link">
+        {number}
+      </span>
+      <span className="pt-0.5">{children}</span>
+    </li>
+  );
+}
+
+function IosSteps() {
+  return (
+    <div className="flex flex-col gap-3 text-sm text-text">
+      <p>Install it to get notifications and open it like any other app:</p>
+      <ol className="flex flex-col gap-2">
+        <Step number={1}>
+          Open this page in <strong>Safari</strong>.
+        </Step>
+        <Step number={2}>
+          Tap <Share aria-label="Share" className="inline size-4" /> <strong>Share</strong>.
+        </Step>
+        <Step number={3}>
+          Choose <SquarePlus aria-hidden="true" className="inline size-4" />{' '}
+          <strong>Add to Home Screen</strong>, then <strong>Add</strong>.
+        </Step>
+      </ol>
+      <p className="text-muted">Needs iOS 16.4 or newer for notifications.</p>
+    </div>
+  );
+}
 
 /**
- * "Install the app" in Settings. Android/desktop: the browser's own install dialog. iPhone/iPad:
- * a short Share → Add to Home Screen guide (Apple allows no other way, and notifications only
- * work after installing). Already installed: says so.
+ * "Install Adda": one big button. Where the browser allows it (Chrome, Edge, Android) it opens
+ * the install dialog straight away; elsewhere it shows exactly where that browser's install
+ * command is. iPhone/iPad: Share → Add to Home Screen (Apple allows no other way).
  */
 export function InstallAppSection() {
   const { installPrompt, installed } = usePwa();
+  const [showSteps, setShowSteps] = useState(false);
 
   if (installed || isStandalone()) {
     return (
@@ -19,52 +53,44 @@ export function InstallAppSection() {
     );
   }
 
-  if (isIos()) {
-    return (
-      <div className="flex flex-col gap-3 text-sm text-text">
-        <p>Install it to get notifications and open it like any other app:</p>
-        <ol className="flex flex-col gap-2">
-          <li className="flex items-center gap-2">
-            <span className="flex size-6 items-center justify-center rounded-full bg-primary-soft text-xs font-semibold text-link">
-              1
-            </span>
-            Open this page in <strong>Safari</strong>.
-          </li>
-          <li className="flex items-center gap-2">
-            <span className="flex size-6 items-center justify-center rounded-full bg-primary-soft text-xs font-semibold text-link">
-              2
-            </span>
-            Tap <Share aria-label="Share" className="inline size-4" /> <strong>Share</strong>.
-          </li>
-          <li className="flex items-center gap-2">
-            <span className="flex size-6 items-center justify-center rounded-full bg-primary-soft text-xs font-semibold text-link">
-              3
-            </span>
-            Choose <SquarePlus aria-hidden="true" className="inline size-4" />{' '}
-            <strong>Add to Home Screen</strong>, then <strong>Add</strong>.
-          </li>
-        </ol>
-        <p className="text-muted">Needs iOS 16.4 or newer for notifications.</p>
-      </div>
-    );
-  }
+  if (isIos()) return <IosSteps />;
 
-  if (installPrompt) {
-    return (
-      <div className="flex flex-col items-start gap-3 text-sm text-text">
-        <p>Open the chat from your home screen or desktop like a normal app.</p>
-        <Button size="sm" onClick={promptInstall}>
-          <Download aria-hidden="true" className="size-4" />
-          Install app
-        </Button>
-      </div>
-    );
-  }
+  const install = () => {
+    if (installPrompt) promptInstall();
+    else setShowSteps(true);
+  };
+  // Browsers only offer installing on a secure (https) site with the app's service worker,
+  // which development builds leave off.
+  const unavailableHere = import.meta.env.DEV || !window.isSecureContext;
 
   return (
-    <p className="text-sm text-muted">
-      To install, use your browser’s menu (⋮) → <strong>Install app</strong> or{' '}
-      <strong>Add to Home screen</strong>.
-    </p>
+    <div className="flex flex-col gap-4 text-sm text-text">
+      <p>
+        Open Adda from your home screen, taskbar or desktop like a normal app — full screen, with
+        notifications.
+      </p>
+      <Button fullWidth onClick={install}>
+        <Download aria-hidden="true" className="size-5" />
+        Install Adda
+      </Button>
+      {showSteps && (
+        <div role="status" className="flex flex-col gap-2">
+          <p className="font-medium">This browser installs apps from its own menu:</p>
+          <ol className="flex flex-col gap-2">
+            {browserInstallSteps().map((step, index) => (
+              <Step key={step} number={index + 1}>
+                {step}
+              </Step>
+            ))}
+          </ol>
+          {unavailableHere && (
+            <p className="text-muted">
+              Installing works on the live site (a secure https link). This development version
+              can’t be installed.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
