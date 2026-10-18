@@ -102,30 +102,21 @@ All input from the browser is untrusted, including:
 | ---------------------------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Transport encryption (TLS/HTTPS/WSS)** | Eavesdroppers on Wi-Fi or the network between the device and our server                                 | **Yes.** Required; HSTS in production.                                                                                                                                                                                                                              |
 | **Encryption at rest**                   | Someone stealing the disk or backup files                                                               | **Yes, by the providers.** MongoDB Atlas encrypts storage at rest by default, and Cloudinary/R2 also encrypt stored objects. The keys belong to the providers, so this does **not** hide data from our own server or from someone holding our database credentials. |
-| **End-to-end encryption (E2EE)**         | Everyone except the two users, **including our server, its operators, and attackers who compromise it** | **No.**                                                                                                                                                                                                                                                             |
+| **End-to-end encryption (E2EE)**         | Everyone except the two users, **including our server, its operators, and attackers who compromise it** | **Yes for messages; photos/videos in progress.** See [E2EE.md](E2EE.md).                                                                                                                                                                                            |
 
-**Decision: v1 is not end-to-end encrypted, and the app and docs will never claim it is.** The server can technically read messages. It's protected by access control, minimal logging, and least-privilege credentials, not by cryptography.
+**Decision (updated 2026-10-18): messages are end-to-end encrypted.** The original v1 plan was "no E2EE"; it was added in Phase 10 at the owner's request. Design summary (details in [E2EE.md](E2EE.md)):
 
-Why E2EE isn't in v1 (it can be added later as its own project):
+- Each user has an ECDH P-256 identity key pair made on their device; the private key never leaves it unencrypted.
+- Each chat's key is derived with ECDH + HKDF-SHA256; each message is encrypted with AES-256-GCM (random IV, sender/recipient/message ids bound as associated data).
+- The server stores and relays only encrypted envelopes, public keys, and a key backup encrypted with the user's recovery passphrase (Argon2id). It cannot read message content.
+- Only standard, built-in browser cryptography (WebCrypto) and an established Argon2 implementation are used. No home-made algorithms.
+- Search runs on the device; notification text is not readable by the server.
 
-- **Key management:** each device needs its own identity keys, and new devices must be verified by the user (safety numbers or QR codes).
-- **Multiple devices:** messages must be encrypted separately for every device of both users (Signal's Sesame), or the app needs MLS.
-- **Account recovery:** losing all devices means losing the message history unless there's an encrypted backup with a recovery key. That's a real UX burden.
-- **Media:** files must be encrypted on the client with per-file keys, so the server can't make thumbnails or transcode videos. That breaks the HEVC playback fix.
-- **Search:** server search becomes impossible. It would need an on-device index.
-- **Notifications:** push payloads would have to be decrypted inside the service worker. That's possible, but it adds complexity on iOS.
-- **Implementation:** this must use audited protocols and libraries (Signal protocol via libsignal, or MLS via OpenMLS/wasm). We will never invent our own cryptography.
-
-What v1 does so that E2EE stays possible later:
-
-- Message `type` and content fields are isolated.
-- Search, previews, and push go through services that can be swapped for device-side versions.
-
-Optional middle ground, not recommended for v1: server-side field encryption of message text with a key stored in env. It protects only against a database-only leak, it breaks server search, and it doesn't protect against a compromise of our server. Not worth the cost right now.
+**Not yet covered:** photos and videos (planned: per-file AES-256-GCM keys sent inside the encrypted message). Metadata — who chats with whom, when, delivery/seen state, reactions — stays visible to the server, as in every messenger. There is no forward secrecy yet (one key per pair of key pairs). The limits are listed honestly in [E2EE.md §1](E2EE.md).
 
 ## 8. Known limitations (initial list — kept up to date)
 
-1. No E2EE (§7).
+1. End-to-end encryption covers messages but not yet photos/videos, and has no forward secrecy yet (§7, [E2EE.md](E2EE.md)).
 2. **Media links (confirmed in Phase 8):** media is stored as Cloudinary "authenticated" assets, so it can only be loaded through a URL signed with our secret, and our server hands out such a URL only after checking that the viewer may see it (`GET /api/media/:id` → 302, never cached). On the free plan these signed URLs **do not expire** (time-limited tokens are a paid feature): someone who copies the final `res.cloudinary.com` link out of the browser could share it until the file is deleted. Unsend and the cleanup job delete the file, which ends that link.
 3. **GIF searches** go directly from the browser to KLIPY (required by KLIPY's terms), so KLIPY sees the user's IP address and search words. The user id sent to KLIPY is an anonymous hash. Sent GIFs are loaded from `static.klipy.com` by both people.
 4. Presence and rate limits are kept in memory on a single instance. Restarting the server resets the counters.

@@ -58,7 +58,9 @@ Requirements: Node.js 24 LTS and a free MongoDB Atlas database ([docs/SETUP.md](
 
 ## Security note
 
-This app is **not end-to-end encrypted**. Messages are encrypted in transit (HTTPS/WSS) and at rest by the hosting providers, and access is enforced by the server. See [SECURITY §7](docs/SECURITY.md).
+Messages are **end-to-end encrypted**: text, captions, edits, reply quotes and the chosen GIF are encrypted on the sender's device and can only be decrypted by the two people in the chat — not by the server or its operators. Encryption keys stay on the devices; the server stores only public keys and a backup locked by the user's recovery passphrase. See [E2EE](docs/E2EE.md) for the design and its honest limits.
+
+Photos and videos are not yet end-to-end encrypted (in progress, see [E2EE §4](docs/E2EE.md)). Until then they are protected by access-checked, signed links, HTTPS and the hosting provider's encryption at rest. All traffic uses HTTPS/WSS.
 
 ## License
 
