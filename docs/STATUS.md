@@ -2,6 +2,20 @@
 
 ## Current phase: 10 — end-to-end encryption, parts 1–2 done (keys, encrypted messages); next: part 3 (encrypted photos/videos + Download), part 4 (notification previews, safety numbers), then the security review
 
+### 2026-10-18 — Swipe to reply, downloads, Media and links, ready for production
+
+- Swipe a message to reply (touch): others' messages right, mine left.
+- Download photos/videos (viewer button, message menu): full quality as an attachment, HEIC → JPEG,
+  video → MP4; verified on real Cloudinary (signed works, unsigned refused).
+- Media and links in chat info; links in messages are tappable (http/https only, no referrer).
+- Production: localhost app address or sender email refused; dev pages only in dev builds;
+  screens load on demand (largest file 429 KB, no size warning).
+- Fixed: popups closing each other via back-button history; deliberate logout being treated as
+  an expired session.
+- Tests: 385 unit/integration, 47 E2E passing.
+- Remaining: encrypted photos/videos (E2EE part 3), notification previews and safety numbers
+  (part 4), deployment (Phase 11).
+
 ### 2026-10-18 — Group chats, Notifications tab, Friends sections
 
 - **Groups** (docs/GROUPS.md): up to 50 people, admins manage members/name/photo, anyone can leave,
