@@ -304,6 +304,14 @@ function ChatView({ conversationId }) {
         onOpenMedia={(message, index) =>
           setViewing({ items: message.attachments, startIndex: index })
         }
+        onReply={
+          data.canMessage
+            ? (message) => {
+                setEditing(null);
+                setReplyTo(message);
+              }
+            : undefined
+        }
         footer={
           typing && (
             <TypingIndicator

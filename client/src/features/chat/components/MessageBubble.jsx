@@ -1,6 +1,7 @@
 import { Fragment } from 'react';
-import { Ban, Lock, MoreHorizontal, Pin } from 'lucide-react';
+import { Ban, Lock, MoreHorizontal, Pin, Reply } from 'lucide-react';
 import { useLongPress } from '../../../hooks/useLongPress.js';
+import { mergeHandlers, useSwipeToReply } from '../../../hooks/useSwipeToReply.js';
 import { cn } from '../../../lib/cn.js';
 import { formatTime } from '../../../lib/format.js';
 import { highlightText } from '../../../lib/highlight.jsx';
@@ -113,11 +114,17 @@ export function MessageBubble({
   onToggleReaction,
   onJumpTo,
   onOpenMedia,
+  onReply,
 }) {
   const failed = message.status === 'failed';
   const unsent = Boolean(message.unsentAt);
   const canOpenMenu = Boolean(onOpenMenu) && !message.pending;
   const longPress = useLongPress(() => onOpenMenu?.(message));
+  const swipe = useSwipeToReply({
+    direction: isOwn ? -1 : 1,
+    enabled: Boolean(onReply) && !message.pending && !message.unsentAt && !message.undecryptable,
+    onReply: () => onReply?.(message),
+  });
   const replyAuthor =
     message.replyTo?.senderId === currentUserId
       ? 'You'
@@ -139,16 +146,36 @@ export function MessageBubble({
       {sender && isFirstInGroup && (
         <span className="mb-0.5 ml-12 text-xs font-medium text-muted">{sender.name}</span>
       )}
-      <div className={cn('flex max-w-full items-center gap-1', isOwn && 'flex-row-reverse')}>
+      <div
+        className={cn(
+          'relative flex max-w-full items-center gap-1',
+          isOwn && 'flex-row-reverse',
+          !swipe.dragging && 'transition-transform duration-(--duration-fast)',
+        )}
+        style={swipe.offset ? { transform: `translateX(${swipe.offset}px)` } : undefined}
+      >
+        {swipe.offset !== 0 && (
+          <span
+            aria-hidden="true"
+            style={{ opacity: Math.min(1, Math.abs(swipe.offset) / 56) }}
+            className={cn(
+              'absolute top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-full bg-surface text-muted shadow-sm transition-colors',
+              isOwn ? '-right-11' : '-left-11',
+              swipe.ready && 'bg-primary text-on-primary',
+            )}
+          >
+            <Reply className="size-4" />
+          </span>
+        )}
         {sender && (
           <span className="mr-1 flex w-8 shrink-0 self-end">
             {isLastInGroup && <Avatar name={sender.name} src={sender.avatar} size="sm" />}
           </span>
         )}
         <div
-          {...(canOpenMenu ? longPress : {})}
+          {...mergeHandlers(canOpenMenu ? longPress : {}, swipe.handlers)}
           className={cn(
-            'relative max-w-[min(80vw,34rem)] rounded-bubble shadow-sm select-text [-webkit-touch-callout:none]',
+            'relative max-w-[min(80vw,34rem)] touch-pan-y rounded-bubble shadow-sm select-text [-webkit-touch-callout:none]',
             hasMedia ? 'p-1 pb-1' : 'px-3 pt-1.5 pb-1',
             'transition-shadow duration-(--duration-slow) [[data-flash=true]_&]:ring-4 [[data-flash=true]_&]:ring-primary',
             isOwn ? 'bg-bubble-out text-on-bubble-out' : 'bg-bubble-in text-on-bubble-in',

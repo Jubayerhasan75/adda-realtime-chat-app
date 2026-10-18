@@ -36,6 +36,7 @@ export function MessageList({
   onToggleReaction,
   onJumpTo,
   onOpenMedia,
+  onReply,
 }) {
   const scrollRef = useRef(null);
   const unreadRef = useRef(null);
@@ -127,7 +128,7 @@ export function MessageList({
         onScroll={handleScroll}
         role="log"
         aria-label="Messages"
-        className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-chat-bg pt-2 pb-3"
+        className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain bg-chat-bg pt-2 pb-3"
       >
         <div ref={contentRef}>
           {hasOlder && (
@@ -210,6 +211,7 @@ export function MessageList({
                 onToggleReaction={onToggleReaction}
                 onJumpTo={onJumpTo}
                 onOpenMedia={onOpenMedia}
+                onReply={onReply}
                 onRetry={
                   message.pending && onRetry ? () => onRetry(message.clientMessageId) : undefined
                 }
