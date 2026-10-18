@@ -1,4 +1,3 @@
-import { BioForm, NameForm, UsernameForm } from './AccountForms.jsx';
 import {
   AboutPage,
   AppearancePage,
@@ -9,31 +8,30 @@ import {
   NotificationsPage,
   PasswordPage,
   PrivacyPage,
-  ProfileFieldPage,
+  BioPage,
+  NamePage,
   ProfilePage,
   SettingsPage,
+  UsernamePage,
 } from './SettingsPage.jsx';
 
-/** Settings and its sub-pages (each opens like a new screen; back returns to the list). */
-export const settingsRoutes = {
-  path: 'settings',
-  children: [
-    { index: true, element: <SettingsPage /> },
-    { path: 'profile', element: <ProfilePage /> },
-    { path: 'profile/name', element: <ProfileFieldPage title="Name" Form={NameForm} /> },
-    {
-      path: 'profile/username',
-      element: <ProfileFieldPage title="Username" Form={UsernameForm} />,
-    },
-    { path: 'profile/bio', element: <ProfileFieldPage title="Bio" Form={BioForm} /> },
-    { path: 'appearance', element: <AppearancePage /> },
-    { path: 'notifications', element: <NotificationsPage /> },
-    { path: 'privacy', element: <PrivacyPage /> },
-    { path: 'email', element: <EmailPage /> },
-    { path: 'password', element: <PasswordPage /> },
-    { path: 'devices', element: <DevicesPage /> },
-    { path: 'install', element: <InstallPage /> },
-    { path: 'about', element: <AboutPage /> },
-    { path: 'delete-account', element: <DeleteAccountPage /> },
-  ],
+/**
+ * Settings and its sub-pages by path (each opens like a new screen; back returns to the list).
+ * Loaded only when Settings is opened (see app/router.jsx).
+ */
+export const SETTINGS_PAGES = {
+  '': SettingsPage,
+  profile: ProfilePage,
+  'profile/name': NamePage,
+  'profile/username': UsernamePage,
+  'profile/bio': BioPage,
+  appearance: AppearancePage,
+  notifications: NotificationsPage,
+  privacy: PrivacyPage,
+  email: EmailPage,
+  password: PasswordPage,
+  devices: DevicesPage,
+  install: InstallPage,
+  about: AboutPage,
+  'delete-account': DeleteAccountPage,
 };

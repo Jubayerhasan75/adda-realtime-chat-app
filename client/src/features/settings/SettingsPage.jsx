@@ -25,7 +25,7 @@ import { AboutSection } from '../pwa/AboutSection.jsx';
 import { InstallAppSection } from '../pwa/InstallAppSection.jsx';
 import { NotificationSettings } from '../pwa/NotificationSettings.jsx';
 import { isIos, isStandalone, promptInstall, usePwa } from '../pwa/pwaStore.js';
-import { EmailForm, PasswordForm } from './AccountForms.jsx';
+import { BioForm, EmailForm, NameForm, PasswordForm, UsernameForm } from './AccountForms.jsx';
 import { useUpdateSettings } from './api.js';
 import { AvatarEditor } from './AvatarEditor.jsx';
 import { PrivacySettings } from './PrivacySettings.jsx';
@@ -330,3 +330,7 @@ export function DeleteAccountPage() {
     </SubPage>
   );
 }
+
+export const NamePage = () => <ProfileFieldPage title="Name" Form={NameForm} />;
+export const UsernamePage = () => <ProfileFieldPage title="Username" Form={UsernameForm} />;
+export const BioPage = () => <ProfileFieldPage title="Bio" Form={BioForm} />;
