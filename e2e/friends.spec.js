@@ -22,7 +22,7 @@ test('journeys 3–4: find someone, send a request, accept it live, then block',
   const arif = await openAs(browser, 'arif_e2e', 'Arif E2E');
   const errors = [...[nadia.page, arif.page].map(trackConsoleErrors)];
 
-  await arif.page.goto('/friends');
+  await arif.page.goto('/friends?tab=friends');
   await expect(arif.page.getByText('No friends yet')).toBeVisible();
 
   // Nadia searches by partial username and sends a request.
@@ -33,20 +33,38 @@ test('journeys 3–4: find someone, send a request, accept it live, then block',
   await results.getByRole('button', { name: 'Add' }).click();
   await expect(results.getByRole('button', { name: /Cancel friend request/ })).toBeVisible();
 
-  // Arif sees the request appear without reloading (live update) and the badge on the tab.
-  await expect(arif.page.getByText('Friend requests')).toBeVisible();
+  // Arif sees the request appear without reloading (live update): a count on the Requests
+  // section, and the request in his Notifications tab.
+  await expect(arif.page.getByRole('tab', { name: /Requests 1/ })).toBeVisible();
+  await arif.page
+    .getByRole('navigation', { name: 'Main' })
+    .getByRole('link', { name: /Notifications/ })
+    .first()
+    .click();
   await expect(arif.page.getByText('sent you a friend request')).toBeVisible();
-  await arif.page.getByRole('button', { name: 'Accept' }).click();
+  await arif.page.getByText('sent you a friend request').click(); // opens Friends → Requests
+  await expect(arif.page.getByRole('tab', { name: /Requests/ })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+  await arif.page
+    .getByRole('list', { name: 'Friend requests' })
+    .getByRole('button', { name: 'Accept' })
+    .click();
+  await arif.page.getByRole('tab', { name: /Friends/ }).click();
   await expect(
     arif.page.getByRole('list', { name: 'Friends' }).getByText('Nadia E2E'),
   ).toBeVisible();
 
-  // Nadia's friends list updates live too.
+  // Nadia's friends list updates live too, and Arif is shown as active now.
   await nadia.page.getByLabel('Search people by username').fill('');
+  await expect(
+    nadia.page.getByRole('list', { name: 'Active now' }).getByText('Arif E2E'),
+  ).toBeVisible();
+  await nadia.page.getByRole('tab', { name: /Friends/ }).click();
   await expect(
     nadia.page.getByRole('list', { name: 'Friends' }).getByText('Arif E2E'),
   ).toBeVisible();
-  await expect(nadia.page.getByText('accepted your friend request')).toBeVisible();
 
   // Nadia blocks Arif from his profile: he disappears from both lists.
   await nadia.page.getByRole('list', { name: 'Friends' }).getByText('Arif E2E').click();

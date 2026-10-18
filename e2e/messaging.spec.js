@@ -39,7 +39,7 @@ test('journeys 5–6: start a chat, send, live delivery, unread badge, delivered
   await arif.page.goto('/settings');
 
   // Nadia starts the conversation from her friends list.
-  await nadia.page.goto('/friends');
+  await nadia.page.goto('/friends?tab=friends');
   await nadia.page.getByRole('button', { name: 'Message Arif' }).click();
   await expect(nadia.page.getByRole('heading', { name: 'Arif' })).toBeVisible();
   await nadia.page.getByLabel('Message', { exact: true }).fill('Hi Arif! 👋');

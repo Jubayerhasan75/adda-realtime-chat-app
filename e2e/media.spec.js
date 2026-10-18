@@ -218,7 +218,7 @@ test('a profile photo shows up for friends', async ({ browser }) => {
   await nadia.page.getByTestId('avatar-input').setInputFiles(png('me.png'));
   await expect(nadia.page.getByRole('button', { name: 'Remove photo' })).toBeVisible();
 
-  await arif.page.goto('/friends');
+  await arif.page.goto('/friends?tab=friends');
   const photo = arif.page.locator('img[src^="/api/media/"][src*="variant=avatar"]').first();
   await expect.poll(() => photo.evaluate((img) => img.complete && img.naturalWidth)).toBe(8);
   await Promise.all([nadia.context.close(), arif.context.close()]);

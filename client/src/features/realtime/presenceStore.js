@@ -37,3 +37,21 @@ export function usePresence(userId) {
     () => (userId && presence.get(userId)) || HIDDEN,
   );
 }
+
+/** Everyone I can see as online right now (a Set of user ids), for "Active now" lists. */
+let onlineIds = new Set();
+let onlineFrom = null;
+function currentOnlineIds() {
+  if (onlineFrom !== presence) {
+    onlineFrom = presence;
+    onlineIds = new Set([...presence.values()].filter((p) => p.online).map((p) => p.userId));
+  }
+  return onlineIds;
+}
+
+export function useOnlineIds() {
+  return useSyncExternalStore((listener) => {
+    listeners.add(listener);
+    return () => listeners.delete(listener);
+  }, currentOnlineIds);
+}
