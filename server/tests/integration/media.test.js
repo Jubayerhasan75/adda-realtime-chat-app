@@ -269,6 +269,16 @@ describe('sending and viewing', () => {
     await as(sadia).get(`/api/conversations/${chat}/media`).expect(404);
   });
 
+  it('downloads a sent photo in full quality as a file, for members only', async () => {
+    const { attachmentId } = await upload(nadia, PNG);
+    await sendMedia(nadia, [attachmentId]);
+    const res = await as(arif).get(`/api/media/${attachmentId}?variant=download`).expect(302);
+    const file = await arif.agent.get(res.headers.location).expect(200);
+    expect(file.headers['content-disposition']).toBe('attachment; filename="adda-photo.png"');
+    expect(Buffer.compare(file.body, PNG)).toBe(0);
+    await as(sadia).get(`/api/media/${attachmentId}?variant=download`).expect(404);
+  });
+
   it('never shows media to someone outside the chat, or to a signed-out visitor', async () => {
     const { attachmentId } = await upload(nadia, PNG);
     await sendMedia(nadia, [attachmentId]);

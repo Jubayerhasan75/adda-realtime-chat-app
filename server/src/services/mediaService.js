@@ -283,6 +283,7 @@ export function createMediaService({ storage, logger }) {
       const url = store.deliveryUrl({
         key: attachment.storage.key,
         kind: attachment.kind,
+        mimeType: attachment.mimeType,
         variant: attachment.purpose === 'avatar' ? 'avatar' : variant,
       });
       if (!url) throw mediaNotFound();

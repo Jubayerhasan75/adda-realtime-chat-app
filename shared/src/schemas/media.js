@@ -56,7 +56,8 @@ export const completeUploadSchema = z.strictObject({
     .optional(),
 });
 
-export const MEDIA_VARIANTS = ['thumb', 'full', 'poster', 'avatar'];
+// 'download' = full quality, delivered as a file to save (Content-Disposition: attachment).
+export const MEDIA_VARIANTS = ['thumb', 'full', 'poster', 'avatar', 'download'];
 
 export const mediaVariantSchema = z.strictObject({
   variant: z.enum(MEDIA_VARIANTS).default('full'),

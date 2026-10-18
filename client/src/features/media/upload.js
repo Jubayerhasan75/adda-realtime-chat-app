@@ -196,3 +196,21 @@ export function discardUpload(attachmentId) {
 /** URL of a sent photo/video; the server checks access and redirects to the file. */
 export const mediaUrl = (attachmentId, variant = 'thumb') =>
   `/api/media/${attachmentId}?variant=${variant}`;
+
+/**
+ * Saves sent photos/videos to the device in full quality (the server checks access, then the
+ * file comes as a download). Several files are started one after another.
+ */
+export function downloadMedia(attachmentIds) {
+  attachmentIds.forEach((id, index) => {
+    setTimeout(() => {
+      const link = document.createElement('a');
+      link.href = mediaUrl(id, 'download');
+      link.download = '';
+      link.rel = 'noopener';
+      document.body.append(link);
+      link.click();
+      link.remove();
+    }, index * 600);
+  });
+}

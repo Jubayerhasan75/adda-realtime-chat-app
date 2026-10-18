@@ -85,6 +85,11 @@ export async function localFile(req, res) {
   if (!file) throw new AppError(404, ERROR_CODES.NOT_FOUND, 'Media not found');
   res.setHeader('Cache-Control', 'private, max-age=300');
   res.setHeader('Content-Type', file.mimeType);
+  if (req.query.download === '1') {
+    const extension = file.mimeType.split('/')[1]?.replace('quicktime', 'mov') ?? 'bin';
+    const kind = file.mimeType.startsWith('video/') ? 'video' : 'photo';
+    res.setHeader('Content-Disposition', `attachment; filename="adda-${kind}.${extension}"`);
+  }
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.send(file.data);
 }

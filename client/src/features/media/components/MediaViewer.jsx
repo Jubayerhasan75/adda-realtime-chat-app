@@ -1,8 +1,9 @@
-import { ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useCloseOnBack } from '../../../hooks/useCloseOnBack.js';
 import { localPreview } from '../localPreviews.js';
-import { mediaUrl } from '../upload.js';
+import { showToast } from '../../../lib/toast.js';
+import { downloadMedia, mediaUrl } from '../upload.js';
 
 const SWIPE_PX = 50;
 
@@ -92,14 +93,31 @@ export function MediaViewer({ items, startIndex = 0, onClose }) {
             <span className="text-sm tabular-nums" aria-live="polite">
               {count > 1 ? `${index + 1} / ${count}` : ''}
             </span>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Close"
-              className="flex size-11 items-center justify-center rounded-full hover:bg-white/15"
-            >
-              <X aria-hidden="true" className="size-6" />
-            </button>
+            <span className="flex items-center gap-1">
+              {!current.pending && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    downloadMedia([current.id]);
+                    showToast(
+                      current.kind === 'video' ? 'Downloading video…' : 'Downloading photo…',
+                    );
+                  }}
+                  aria-label={current.kind === 'video' ? 'Download video' : 'Download photo'}
+                  className="flex size-11 items-center justify-center rounded-full hover:bg-white/15"
+                >
+                  <Download aria-hidden="true" className="size-6" />
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Close"
+                className="flex size-11 items-center justify-center rounded-full hover:bg-white/15"
+              >
+                <X aria-hidden="true" className="size-6" />
+              </button>
+            </span>
           </div>
 
           {index > 0 && (

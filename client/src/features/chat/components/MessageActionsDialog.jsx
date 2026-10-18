@@ -1,5 +1,5 @@
 import { LIMITS } from '@chat/shared';
-import { Copy, Pencil, Pin, PinOff, Reply, SmilePlus, Trash2, Undo2 } from 'lucide-react';
+import { Copy, Download, Pencil, Pin, PinOff, Reply, SmilePlus, Trash2, Undo2 } from 'lucide-react';
 import { useState } from 'react';
 import { Alert } from '../../../components/ui/Alert.jsx';
 import { Dialog } from '../../../components/ui/Dialog.jsx';
@@ -7,6 +7,7 @@ import { showToast } from '../../../lib/toast.js';
 import { cn } from '../../../lib/cn.js';
 import { useDeleteForMe, usePinToggle, useReact, useUnreact, useUnsendMessage } from '../api.js';
 import { QUICK_REACTIONS } from '../emojiData.js';
+import { downloadMedia } from '../../media/upload.js';
 import { EmojiPicker } from './EmojiPicker.jsx';
 import { messageSummary } from '../lib/messageSummary.js';
 
@@ -126,6 +127,23 @@ export function MessageActionsDialog({
                 label="Reply"
                 onClick={() => {
                   onReply(message);
+                  close();
+                }}
+              />
+            )}
+            {!unsent && message.attachments?.length > 0 && (
+              <ActionButton
+                icon={Download}
+                label={
+                  message.attachments.length > 1
+                    ? `Download all (${message.attachments.length})`
+                    : message.attachments[0].kind === 'video'
+                      ? 'Download video'
+                      : 'Download photo'
+                }
+                onClick={() => {
+                  downloadMedia(message.attachments.map((attachment) => attachment.id));
+                  showToast('Downloading…');
                   close();
                 }}
               />

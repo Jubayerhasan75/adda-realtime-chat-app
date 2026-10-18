@@ -54,6 +54,25 @@ const VARIANTS = {
   },
 };
 
+/**
+ * A signed link that makes the browser save the file ("fl_attachment"). Photos keep their
+ * original quality; iPhone HEIC photos become JPEG and videos MP4, so they open everywhere.
+ */
+function downloadUrl(key, kind, mimeType) {
+  const name = kind === 'video' ? 'adda_video' : 'adda_photo';
+  const format = kind === 'video' ? 'mp4' : /heic|heif/.test(mimeType ?? '') ? 'jpg' : undefined;
+  return cloudinary.url(key, {
+    resource_type: kind,
+    type: 'authenticated',
+    sign_url: true,
+    secure: true,
+    urlAnalytics: false,
+    flags: `attachment:${name}`,
+    ...(kind === 'video' ? { transformation: [VIDEO_PLAYBACK] } : {}),
+    ...(format ? { format } : {}),
+  });
+}
+
 const statusOf = (err) => err?.http_code ?? err?.error?.http_code;
 
 /**
@@ -141,7 +160,8 @@ export function createCloudinaryStorage({ url }) {
       }
     },
 
-    deliveryUrl({ key, kind, variant }) {
+    deliveryUrl({ key, kind, variant, mimeType }) {
+      if (variant === 'download') return downloadUrl(key, kind, mimeType);
       const options =
         kind === 'video'
           ? VARIANTS.video[variant === 'full' ? 'full' : 'poster']

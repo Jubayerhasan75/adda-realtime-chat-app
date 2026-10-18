@@ -100,6 +100,12 @@ test('journey 7: send photos with a caption, view them full screen, unsend remov
   await expect(viewer.getByText('1 / 2')).toBeVisible();
   await viewer.getByRole('button', { name: 'Next' }).click();
   await expect(viewer.getByText('2 / 2')).toBeVisible();
+  // Download saves the photo as a file.
+  const [download] = await Promise.all([
+    arif.page.waitForEvent('download'),
+    viewer.getByRole('button', { name: 'Download photo' }).click(),
+  ]);
+  expect(download.suggestedFilename()).toBe('adda-photo.png');
   await arif.page.goBack();
   await expect(viewer).toBeHidden();
   await expect(arif.page).toHaveURL(`/chats/${chat}`);

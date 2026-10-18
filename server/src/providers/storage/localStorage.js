@@ -98,10 +98,11 @@ export function createLocalStorage({ dir }) {
 
     /** Local storage has no video posters or resizing: every variant is the original file. */
     deliveryUrl({ key, kind, variant }) {
-      if (kind === 'video' && variant !== 'full') return null;
+      if (kind === 'video' && variant !== 'full' && variant !== 'download') return null;
       const exp = Date.now() + LINK_TTL_MS;
       const name = fileName(key);
-      return `/api/media/local-file/${name}?exp=${exp}&sig=${mac(`${name}:${exp}`)}`;
+      const link = `/api/media/local-file/${name}?exp=${exp}&sig=${mac(`${name}:${exp}`)}`;
+      return variant === 'download' ? `${link}&download=1` : link;
     },
 
     /** Serves a file for a valid, unexpired signed link (GET /api/media/local-file/:name). */
