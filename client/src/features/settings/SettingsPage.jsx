@@ -81,7 +81,7 @@ export function SettingsPage() {
       <div className="flex flex-col gap-6 pb-6">
         <Link
           to="/settings/profile"
-          className="flex items-center gap-4 rounded-xl border border-border bg-surface p-4 transition-colors duration-(--duration-fast) hover:bg-surface-hover active:bg-surface-active"
+          className="flex items-center gap-4 rounded-xl p-2 transition-colors duration-(--duration-fast) hover:bg-surface-hover active:bg-surface-active"
         >
           <Avatar name={user.displayName} src={user.avatar} size="lg" />
           <span className="min-w-0 flex-1">

@@ -24,14 +24,12 @@ export function SettingsGroup({ title, footer, children }) {
       {title && (
         <h2
           id={headingId}
-          className="px-1 text-xs font-semibold tracking-wide text-muted uppercase"
+          className="px-2 text-xs font-semibold tracking-wide text-muted uppercase"
         >
           {title}
         </h2>
       )}
-      <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface">
-        {children}
-      </ul>
+      <ul className="flex flex-col">{children}</ul>
       {footer && <p className="px-1 text-xs text-muted">{footer}</p>}
     </section>
   );
@@ -39,15 +37,11 @@ export function SettingsGroup({ title, footer, children }) {
 
 /** Plain card for a sub-page's content (switches, choices, forms). */
 export function SettingsCard({ children, className }) {
-  return (
-    <div className={cn('rounded-xl border border-border bg-surface p-4', className)}>
-      {children}
-    </div>
-  );
+  return <div className={cn('rounded-xl bg-surface-muted p-4', className)}>{children}</div>;
 }
 
 const rowClasses =
-  'flex min-h-14 w-full items-center gap-3 px-3 py-2.5 text-left transition-colors duration-(--duration-fast) hover:bg-surface-hover active:bg-surface-active disabled:opacity-60';
+  'flex min-h-14 w-full items-center gap-3 rounded-xl px-2 py-2.5 text-left transition-colors duration-(--duration-fast) hover:bg-surface-hover active:bg-surface-active disabled:opacity-60';
 
 /**
  * One row: a coloured round icon, a label, an optional value line, and a chevron when it opens
