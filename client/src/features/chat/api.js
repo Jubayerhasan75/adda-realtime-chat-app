@@ -5,7 +5,7 @@ import {
   openConversation,
   openMessage,
   openMessages,
-  rememberPeer,
+  rememberConversation,
   sealContent,
 } from '../e2ee/messages.js';
 import { getConnectedSocket } from '../realtime/socketStore.js';
@@ -77,7 +77,7 @@ export function useOpenConversation() {
     mutationFn: (peerUserId) =>
       apiRequest('/api/conversations', { method: 'POST', body: { peerUserId } }),
     onSuccess: async (conversation) => {
-      rememberPeer(conversation.id, conversation.peer?.id);
+      rememberConversation(conversation);
       queryClient.setQueryData(
         CHAT_KEYS.conversation(conversation.id),
         await openConversation(conversation),

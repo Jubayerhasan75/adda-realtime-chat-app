@@ -20,8 +20,12 @@ const uniqueIds = (ids) => new Set(ids).size === ids.length;
 
 const keyBoxes = z.array(groupKeyBoxSchema).max(LIMITS.GROUP_MAX_MEMBERS * 50);
 
-/** New group: a name, at least 2 friends, and the first group key locked for every member. */
+/**
+ * New group: a name, at least 2 friends, and the first group key locked for every member. The
+ * creating device picks the group's id, because the locked keys are bound to it.
+ */
 export const createGroupSchema = z.strictObject({
+  id: objectIdField,
   name: groupNameField,
   memberIds: z
     .array(objectIdField)

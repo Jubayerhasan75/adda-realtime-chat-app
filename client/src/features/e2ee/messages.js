@@ -1,4 +1,5 @@
 import { apiRequest } from '../../lib/http.js';
+import { openFromGroup, sealForGroup } from './groupKeys.js';
 import { decryptFromEnvelope, encryptForPeer, getKeyring } from './keyring.js';
 
 /**
@@ -6,30 +7,45 @@ import { decryptFromEnvelope, encryptForPeer, getKeyring } from './keyring.js';
  * into envelopes before it leaves (docs/E2EE.md §3). Decrypted messages live only in memory.
  */
 
-const peers = new Map(); // conversationId → the other member's user id
+const peers = new Map(); // conversationId → the other member's user id (direct chats)
+const groupIds = new Set(); // conversations that are groups
 const REPLY_SNIPPET = 120;
 
 export function rememberPeer(conversationId, peerId) {
   if (conversationId && peerId) peers.set(String(conversationId), String(peerId));
 }
 
-export function rememberPeers(conversations) {
-  for (const conversation of conversations ?? [])
-    rememberPeer(conversation.id, conversation.peer?.id);
+/** Remembers what kind of chat this is (from the list or a summary). */
+export function rememberConversation(conversation) {
+  if (!conversation) return;
+  if (conversation.type === 'group') groupIds.add(String(conversation.id));
+  else rememberPeer(conversation.id, conversation.peer?.id);
 }
 
-/** The other person in a conversation (from the list, or asked once). */
+export function rememberPeers(conversations) {
+  for (const conversation of conversations ?? []) rememberConversation(conversation);
+}
+
+const fetchConversation = (conversationId) => apiRequest(`/api/conversations/${conversationId}`);
+
+/** The other person in a direct conversation (from the list, or asked once). */
 export async function peerIdFor(conversationId) {
-  if (!peers.has(conversationId)) {
-    const conversation = await apiRequest(`/api/conversations/${conversationId}`);
-    rememberPeer(conversationId, conversation.peer?.id);
-  }
+  if (!peers.has(conversationId)) rememberConversation(await fetchConversation(conversationId));
   return peers.get(conversationId);
+}
+
+/** Current members of a group, asked fresh (a new group key must reach all of them). */
+async function groupMemberIds(conversationId) {
+  const conversation = await fetchConversation(conversationId);
+  return conversation.group.members.map((member) => member.id);
 }
 
 const myUserId = () => getKeyring()?.userId;
 
 async function decryptContent({ envelope, conversationId, senderId, clientMessageId }) {
+  if (envelope.v === 2) {
+    return openFromGroup({ envelope, groupId: conversationId, senderId, clientMessageId });
+  }
   const me = myUserId();
   const peerId = senderId === me ? await peerIdFor(conversationId) : senderId;
   return decryptFromEnvelope({
@@ -102,12 +118,24 @@ export const openMessages = (messages) => Promise.all((messages ?? []).map(openM
 /** Readable conversation summary (its last message decrypted). */
 export async function openConversation(conversation) {
   if (!conversation) return conversation;
-  rememberPeer(conversation.id, conversation.peer?.id);
+  rememberConversation(conversation);
   return { ...conversation, lastMessage: await openMessage(conversation.lastMessage) };
 }
 
-/** Content → envelope for the other member of the conversation. */
+/** Content → envelope for the other member, or for the group (docs/GROUPS.md §3). */
 export async function sealContent({ conversationId, clientMessageId, content }) {
+  if (!groupIds.has(conversationId) && !peers.has(conversationId)) {
+    rememberConversation(await fetchConversation(conversationId));
+  }
+  if (groupIds.has(conversationId)) {
+    return sealForGroup({
+      groupId: conversationId,
+      memberIds: () => groupMemberIds(conversationId),
+      senderId: myUserId(),
+      clientMessageId,
+      content,
+    });
+  }
   return encryptForPeer({
     conversationId,
     peerId: await peerIdFor(conversationId),

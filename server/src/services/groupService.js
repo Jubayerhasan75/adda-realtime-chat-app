@@ -157,12 +157,15 @@ export function createGroupService({ media, conversations }) {
 
   return {
     /** A new group: me (admin) + at least two friends, with the first group key for everyone. */
-    async create(me, { name, memberIds, keyBoxes }) {
+    async create(me, { id, name, memberIds, keyBoxes }) {
       const ids = memberIds.filter((id) => id !== String(me._id));
       if (ids.length < 2) throw badKeys('Choose at least 2 friends');
       await requireAddable(me, ids);
       const everyone = [String(me._id), ...ids];
-      const conversationId = new mongoose.Types.ObjectId();
+      const conversationId = new mongoose.Types.ObjectId(id);
+      if (await Conversation.exists({ _id: conversationId })) {
+        throw new AppError(409, ERROR_CODES.INVALID_STATE, 'Try again');
+      }
       const docs = await prepareBoxes(me, conversationId, keyBoxes, {
         allowedUserIds: everyone,
         maxEpoch: 1,

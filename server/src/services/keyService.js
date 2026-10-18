@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { ERROR_CODES, SERVER_EVENTS } from '@chat/shared';
+import { ConversationMember } from '../models/ConversationMember.js';
 import { Friendship } from '../models/Friendship.js';
 import { IdentityKey } from '../models/IdentityKey.js';
 import { KeyBackup } from '../models/KeyBackup.js';
@@ -28,15 +29,28 @@ async function requirePassword(user, password) {
   }
 }
 
-/** Friends must refetch my keys (and will see "security code changed"). */
+/** Ids of everyone who shares at least one group with `userId`. */
+async function groupMatesOf(userId) {
+  const mine = await ConversationMember.find({ userId, peerId: null }).select('conversationId');
+  if (mine.length === 0) return [];
+  const mates = await ConversationMember.find({
+    conversationId: { $in: mine.map((m) => m.conversationId) },
+    userId: { $ne: userId },
+  }).select('userId');
+  return mates.map((m) => m.userId);
+}
+
+/** Friends and group members must refetch my keys (and will see "security code changed"). */
 async function announceNewKey(userId) {
   const friendships = await Friendship.find({ userIds: userId, status: 'accepted' }).select(
     'userIds',
   );
-  for (const friendship of friendships) {
-    for (const id of friendship.userIds) {
-      emitToUser(id, SERVER_EVENTS.KEYS_UPDATED, { userId: String(userId) });
-    }
+  const recipients = new Set([
+    ...friendships.flatMap((friendship) => friendship.userIds.map(String)),
+    ...(await groupMatesOf(userId)).map(String),
+  ]);
+  for (const id of recipients) {
+    emitToUser(id, SERVER_EVENTS.KEYS_UPDATED, { userId: String(userId) });
   }
 }
 
@@ -115,7 +129,13 @@ export function createKeyService({ logger, mailer }) {
       if (!mongoose.isValidObjectId(userId))
         throw new AppError(404, ERROR_CODES.NOT_FOUND, 'User not found');
       const { iBlocked, blockedMe } = await blockStatus(me._id, userId);
-      if (iBlocked || blockedMe) throw new AppError(404, ERROR_CODES.NOT_FOUND, 'User not found');
+      // People in the same group always need each other's keys (to share the group key).
+      if (
+        (iBlocked || blockedMe) &&
+        !(await groupMatesOf(me._id)).some((id) => id.equals(userId))
+      ) {
+        throw new AppError(404, ERROR_CODES.NOT_FOUND, 'User not found');
+      }
       const keys = await IdentityKey.find({ userId }).sort({ createdAt: -1 });
       return { currentKeyId: keys[0]?.keyId ?? null, keys: keys.map(keyView) };
     },

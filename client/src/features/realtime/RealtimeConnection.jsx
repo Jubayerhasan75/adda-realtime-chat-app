@@ -8,6 +8,7 @@ import { flushOutbox, startOutbox, stopOutbox } from '../chat/outbox.js';
 import { clearTyping, receiveTyping } from '../chat/typingStore.js';
 import { FRIENDS_KEYS } from '../friends/api.js';
 import { NOTIFICATIONS_KEY } from '../notifications/api.js';
+import { forgetGroupBoxKeys, forgetGroupKeys, shareGroupKeys } from '../e2ee/groupKeys.js';
 import { forgetPeerKeys } from '../e2ee/keyring.js';
 import { openMessage } from '../e2ee/messages.js';
 import { syncPushSubscription } from '../pwa/push.js';
@@ -66,6 +67,7 @@ export function RealtimeConnection({ userId }) {
     // A friend set up a new key: use it from now on (and re-read anything that needs it).
     socket.on(SERVER_EVENTS.KEYS_UPDATED, ({ userId: changedUserId }) => {
       forgetPeerKeys(changedUserId);
+      forgetGroupBoxKeys();
       queryClient.invalidateQueries({ queryKey: ['keys', changedUserId] });
     });
     socket.on(SERVER_EVENTS.MESSAGE_HIDDEN, ({ conversationId, messageId }) => {
@@ -73,9 +75,30 @@ export function RealtimeConnection({ userId }) {
       refreshConversations();
     });
     socket.on(SERVER_EVENTS.CONVERSATION_UPDATED, ({ conversationId }) => {
-      // Cleared, muted or recolored on another of my devices.
+      // Cleared, muted or recolored on another of my devices; or a group changed (members,
+      // name, a new group key, keys shared with me): load its keys and messages again.
+      forgetGroupKeys(conversationId);
       queryClient.resetQueries({ queryKey: CHAT_KEYS.history(conversationId) });
+      queryClient.invalidateQueries({ queryKey: CHAT_KEYS.conversation(conversationId) });
       refreshConversations();
+    });
+    // I left or was removed from a group: it disappears.
+    socket.on(SERVER_EVENTS.CONVERSATION_REMOVED, ({ conversationId }) => {
+      forgetGroupKeys(conversationId);
+      queryClient.setQueryData(CHAT_KEYS.list, (list) =>
+        list?.filter((conversation) => conversation.id !== conversationId),
+      );
+      queryClient.removeQueries({ queryKey: CHAT_KEYS.history(conversationId) });
+      queryClient.invalidateQueries({ queryKey: CHAT_KEYS.conversation(conversationId) });
+      refreshConversations();
+    });
+    // Someone in a group is missing keys: share mine (after a short random wait, so not every
+    // member's phone answers at once — the server keeps the first good copy).
+    socket.on(SERVER_EVENTS.GROUP_KEYS_NEEDED, ({ conversationId, userId: needy }) => {
+      setTimeout(
+        () => shareGroupKeys(conversationId, [needy]).catch(() => {}),
+        Math.random() * 2000,
+      );
     });
     socket.on(SERVER_EVENTS.RECEIPT_UPDATE, refreshConversations);
     socket.on(SERVER_EVENTS.CONVERSATION_READ_SYNC, refreshConversations);

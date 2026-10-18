@@ -1,4 +1,5 @@
 import { createHash, randomUUID, webcrypto } from 'node:crypto';
+import mongoose from 'mongoose';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { Conversation } from '../../src/models/Conversation.js';
 import {
@@ -13,6 +14,7 @@ import { startTestDatabase } from '../helpers/testDatabase.js';
 // docs/GROUPS.md
 
 const b64url = (bytes) => Buffer.from(bytes).toString('base64url');
+const newId = () => new mongoose.Types.ObjectId().toHexString();
 
 /** Registers a real-looking identity key for a user; returns its id. */
 async function setUpKey(who) {
@@ -98,6 +100,7 @@ const send = (who, groupId, envelope) =>
 async function createGroup(name = 'Study group', members = [arif, sadia]) {
   const res = await as(nadia)
     .post('/api/groups', {
+      id: newId(),
       name,
       memberIds: members.map((m) => m.user.id),
       keyBoxes: [nadia, ...members].map((m) => box(nadia, m)),
@@ -149,6 +152,7 @@ describe('creating a group', () => {
   it('needs at least 2 friends, only friends, and a key for every member', async () => {
     await as(nadia)
       .post('/api/groups', {
+        id: newId(),
         name: 'Duo',
         memberIds: [arif.user.id],
         keyBoxes: [box(nadia, nadia), box(nadia, arif), box(nadia, arif)],
@@ -159,6 +163,7 @@ describe('creating a group', () => {
     await makeFriends(arif, rafi);
     await as(arif)
       .post('/api/groups', {
+        id: newId(),
         name: 'Nope',
         memberIds: [rafi.user.id, sadia.user.id],
         keyBoxes: [arif, rafi, sadia].map((m) => box(arif, m)),
@@ -168,6 +173,7 @@ describe('creating a group', () => {
     // A key missing for Sadia.
     await as(nadia)
       .post('/api/groups', {
+        id: newId(),
         name: 'Missing key',
         memberIds: [arif.user.id, sadia.user.id],
         keyBoxes: [box(nadia, nadia), box(nadia, arif), box(nadia, arif)],
@@ -177,6 +183,7 @@ describe('creating a group', () => {
     // A key locked to someone's wrong identity key.
     await as(nadia)
       .post('/api/groups', {
+        id: newId(),
         name: 'Wrong key',
         memberIds: [arif.user.id, sadia.user.id],
         keyBoxes: [

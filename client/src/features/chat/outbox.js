@@ -1,6 +1,7 @@
 import { CLIENT_EVENTS } from '@chat/shared';
 import { useSyncExternalStore } from 'react';
 import { apiRequest } from '../../lib/http.js';
+import { forgetGroupKeys } from '../e2ee/groupKeys.js';
 import { openMessage, sealContent } from '../e2ee/messages.js';
 import { getConnectedSocket } from '../realtime/socketStore.js';
 import { outboxStorage } from './outboxStorage.js';
@@ -19,6 +20,8 @@ const PERMANENT_ERRORS = new Set([
   'PEER_NO_KEY',
   'NO_KEY',
 ]);
+// The group's key changed since this message was encrypted: encrypt it again and resend.
+const STALE_KEY_ERRORS = new Set(['GROUP_KEY_ROTATION_NEEDED', 'GROUP_KEY_OUTDATED']);
 
 /**
  * Photos/videos are uploaded before a message enters the outbox, so an item only carries
@@ -137,6 +140,12 @@ async function attempt(clientMessageId) {
     if (!current) return;
     // Offline: keep it queued; it is sent automatically when the connection returns.
     if (err.offline) return;
+    if (STALE_KEY_ERRORS.has(err.code) && current.attempts < MAX_ATTEMPTS) {
+      forgetGroupKeys(current.conversationId);
+      update({ ...current, envelope: undefined, attempts: current.attempts + 1 });
+      setTimeout(() => attempt(clientMessageId), 0);
+      return;
+    }
     const attempts = current.attempts + 1;
     const giveUp = PERMANENT_ERRORS.has(err.code) || attempts >= MAX_ATTEMPTS;
     update({ ...current, attempts, status: giveUp ? 'failed' : 'sending', error: err.message });
