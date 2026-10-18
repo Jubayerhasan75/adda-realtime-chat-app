@@ -121,7 +121,9 @@ describe('Composer', () => {
     const panel = () => screen.queryByRole('region', { name: 'Emoji and GIFs' });
 
     await open();
-    fireEvent.popState(window); // the phone's back gesture
+    // The phone's back gesture: the panel's history entry is left, then popstate fires.
+    window.history.replaceState(null, '');
+    fireEvent.popState(window);
     expect(panel()).not.toBeInTheDocument();
 
     await open();
