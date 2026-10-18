@@ -34,11 +34,11 @@ It runs in any modern browser and installs like a native app on **Android, iPhon
 
 ### Friends
 
-- Search people by username. You can choose not to appear in search, so people can only find you by your exact username.
+- Organised like Messenger's People tab: **Active** (friends online now), **Requests** (incoming and sent) and **Friends** (everyone, plus blocked people).
+- One search box finds your friends by name and anyone by username. You can choose not to appear in search, so people can only find you by your exact username.
 - Friend requests: send, accept, decline and cancel, all live in real time.
 - Only friends can message each other, so no spam from strangers.
 - Unfriend, **block** (instantly hides both people from each other) and **report**.
-- In-app notifications for friend activity.
 
 ### Messaging
 
@@ -55,6 +55,8 @@ It runs in any modern browser and installs like a native app on **Android, iPhon
 - **Clear chat** and **delete chat**. Both affect only your own view; your friend keeps theirs.
 
 ### Notifications and app
+
+- A **Notifications** tab collects everything in one place: friend requests, accepted requests, and **security alerts** — a sign-in on another device, or a change to your password, email, username or encryption keys — so you notice anything you didn't do.
 
 - **Push notifications** when the app is closed, even on iPhone once installed.
 - Choose what the lock screen shows: name and message, name only, or nothing.
