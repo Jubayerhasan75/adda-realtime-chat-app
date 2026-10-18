@@ -13,7 +13,7 @@ export function verifyEmailMail({ displayName, link }) {
 export function accountExistsMail({ loginLink, resetLink }) {
   return {
     subject: 'Someone tried to sign up with your email',
-    text: `Someone (hopefully you) tried to create a Adda account with this email address, but you already have one.\n\nLog in: ${loginLink}\nForgot your password? ${resetLink}\n\nNo new account was created.${SIGNATURE}`,
+    text: `Someone (hopefully you) tried to create an Adda account with this email address, but you already have one.\n\nLog in: ${loginLink}\nForgot your password? ${resetLink}\n\nNo new account was created.${SIGNATURE}`,
   };
 }
 
