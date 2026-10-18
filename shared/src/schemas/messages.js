@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { LIMITS } from '../limits.js';
 import { cleanText } from './fields.js';
 import { objectIdField } from './friends.js';
-import { envelopeSchema } from './keys.js';
+import { anyEnvelopeSchema } from './keys.js';
 
 export const messageTextField = z
   .string()
@@ -30,7 +30,7 @@ export const startConversationSchema = z.strictObject({ peerUserId: objectIdFiel
  */
 const messageContentFields = {
   clientMessageId: clientMessageIdField,
-  envelope: envelopeSchema,
+  envelope: anyEnvelopeSchema,
   attachmentIds: z
     .array(objectIdField)
     .min(1)

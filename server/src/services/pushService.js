@@ -1,4 +1,5 @@
 import webpush from 'web-push';
+import { Conversation } from '../models/Conversation.js';
 import { ConversationMember } from '../models/ConversationMember.js';
 import { PushSubscription } from '../models/PushSubscription.js';
 import { User } from '../models/User.js';
@@ -115,9 +116,10 @@ export function createPushService({ env, logger, presence, send }) {
     /** A message was stored: notify the other member if the rules allow it. */
     async messageSent({ message, sender, recipientId }) {
       if (!configured) return;
-      const [recipient, member] = await Promise.all([
+      const [recipient, member, conversation] = await Promise.all([
         User.findOne({ _id: recipientId, status: 'active' }).select('settings'),
         ConversationMember.findOne({ conversationId: message.conversationId, userId: recipientId }),
+        Conversation.findById(message.conversationId).select('type name'),
       ]);
       if (!recipient || !member) return;
       await sendToUser(
@@ -129,6 +131,7 @@ export function createPushService({ env, logger, presence, send }) {
           mutedUntil: member.mutedUntil,
           appOnScreen: presence?.isOnline(String(recipientId)) ?? false,
           now: new Date(),
+          group: conversation?.type === 'group' ? { name: conversation.name } : null,
         }),
       );
     },

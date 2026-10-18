@@ -17,6 +17,10 @@ export const SERVER_EVENTS = Object.freeze({
   PRESENCE_UPDATE: 'presence:update',
   // A friend's encryption key changed (new device setup or reset): refetch and warn.
   KEYS_UPDATED: 'keys:updated',
+  // I'm no longer in this conversation (left or removed from a group): drop it.
+  CONVERSATION_REMOVED: 'conversation:removed',
+  // A group member is missing group keys: a member's device that has them should share them.
+  GROUP_KEYS_NEEDED: 'group:keys-needed',
 });
 
 /** Events the client sends; each one is answered through a Socket.IO acknowledgement. */

@@ -16,14 +16,28 @@ const MAX_ENCRYPTED_PAYLOAD = 3000;
  * (docs/E2EE.md §6): for "name and message" it passes the encrypted envelope along, and the
  * phone's service worker decrypts it to show the text.
  */
-export function messageNotification({ recipient, sender, message, mutedUntil, appOnScreen, now }) {
+export function messageNotification({
+  recipient,
+  sender,
+  message,
+  mutedUntil,
+  appOnScreen,
+  now,
+  group = null,
+}) {
   const prefs = recipient.settings?.notifications ?? {};
   if (prefs.enabled === false) return null;
   if (mutedUntil && mutedUntil > now) return null;
   if (appOnScreen) return null;
+  if (message.type === 'system') return null;
 
   const conversationId = String(message.conversationId);
   const base = { tag: `chat-${conversationId}`, url: `/chats/${conversationId}` };
+  // Groups: "Study group" · "Nadia: New message" (the text stays encrypted).
+  if (group) {
+    if (prefs.preview === 'none') return { ...base, title: APP_NAME, body: 'New message' };
+    return { ...base, title: group.name, body: `${sender.displayName}: New message` };
+  }
   switch (prefs.preview ?? 'name_only') {
     case 'name_and_text': {
       const notification = { ...base, title: sender.displayName, body: 'New message' };

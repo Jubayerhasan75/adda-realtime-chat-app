@@ -52,7 +52,23 @@ const messageSchema = new Schema(
     clientMessageId: { type: String, required: true },
     // 'e2ee' = an end-to-end encrypted message (docs/E2EE.md): the content is only in
     // `envelope`, which the server can't read. 'media' = the same, with photos/videos.
-    type: { type: String, enum: ['text', 'media', 'gif', 'e2ee'], default: 'e2ee' },
+    // 'system' = a group change ("Nadia added Arif"), see `system`.
+    type: { type: String, enum: ['text', 'media', 'gif', 'e2ee', 'system'], default: 'e2ee' },
+    system: {
+      type: new Schema(
+        {
+          action: {
+            type: String,
+            enum: ['created', 'added', 'removed', 'left', 'renamed', 'photo', 'admin'],
+            required: true,
+          },
+          targetIds: { type: [Schema.Types.ObjectId], default: [] },
+          name: { type: String, maxlength: 100, default: null },
+        },
+        { _id: false },
+      ),
+      default: null,
+    },
     envelope: { type: Schema.Types.Mixed, default: null },
     // Legacy plaintext fields, never written any more (always null).
     text: { type: String, maxlength: LIMITS.MESSAGE_TEXT_MAX, default: null },

@@ -2,10 +2,10 @@ import { z } from 'zod';
 import { isSingleEmoji } from '../emoji.js';
 import { LIMITS } from '../limits.js';
 import { objectIdField } from './friends.js';
-import { envelopeSchema } from './keys.js';
+import { anyEnvelopeSchema } from './keys.js';
 
 /** An edit replaces the encrypted envelope (the server never sees the new text). */
-export const editMessageSchema = z.strictObject({ envelope: envelopeSchema });
+export const editMessageSchema = z.strictObject({ envelope: anyEnvelopeSchema });
 
 export const deleteMessageQuerySchema = z.strictObject({
   scope: z.enum(['me', 'everyone'], { error: 'scope must be "me" or "everyone"' }),

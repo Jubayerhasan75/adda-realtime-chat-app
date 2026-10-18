@@ -7,6 +7,7 @@ export * from './schemas/fields.js';
 export * from './schemas/keys.js';
 export * from './schemas/media.js';
 export * from './schemas/friends.js';
+export * from './schemas/groups.js';
 export * from './schemas/messageActions.js';
 export * from './schemas/messages.js';
 export * from './schemas/push.js';

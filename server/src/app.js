@@ -21,6 +21,7 @@ import { createMailer } from './providers/mailer.js';
 import { createStorage } from './providers/storage/index.js';
 import { createAuthRouter } from './routes/auth.routes.js';
 import { createConversationsRouter } from './routes/conversations.routes.js';
+import { createGroupsRouter } from './routes/groups.routes.js';
 import { createDevMailboxRouter } from './routes/devMailbox.routes.js';
 import { createMessagesRouter } from './routes/messages.routes.js';
 import {
@@ -38,6 +39,7 @@ import { createAuthService } from './services/authService.js';
 import { createConversationService } from './services/conversationService.js';
 import { createDirectoryService } from './services/directoryService.js';
 import { createFriendService } from './services/friendService.js';
+import { createGroupService } from './services/groupService.js';
 import { createKeyService } from './services/keyService.js';
 import { createMediaService } from './services/mediaService.js';
 import { onAuditRecorded } from './services/auditService.js';
@@ -77,6 +79,7 @@ export function createApp({
   app.locals.sessionCookie = sessionCookie;
   app.locals.mailer = mailer;
   app.locals.storage = storage;
+  const conversations = createConversationService({ logger, media, push });
   app.locals.services = {
     auth: createAuthService({ env, mailer, logger }),
     users: createUserService({ logger, presence }),
@@ -87,7 +90,8 @@ export function createApp({
     presence,
     push,
     socketTickets: createSocketTickets(),
-    conversations: createConversationService({ logger, media, push }),
+    conversations,
+    groups: createGroupService({ media, conversations }),
     messages: createMessageService({ logger, media }),
   };
   const isHttps = env.APP_ORIGIN.startsWith('https://');
@@ -156,6 +160,7 @@ export function createApp({
   app.use('/api/notifications', createPushRouter());
   app.use('/api/notifications', createNotificationsRouter());
   app.use('/api/conversations', createConversationsRouter(limits));
+  app.use('/api/groups', createGroupsRouter(limits));
   app.use('/api/messages', createMessagesRouter(limits));
   app.use('/api/media', createMediaRouter(limits, { localStorage: storage?.name === 'local' }));
   app.use('/api/gifs', createGifsRouter());

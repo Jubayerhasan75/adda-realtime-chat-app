@@ -19,4 +19,7 @@ export const LIMITS = Object.freeze({
   IMAGE_MAX_BYTES: 10 * 1024 * 1024,
   VIDEO_MAX_BYTES: 100 * 1024 * 1024,
   UPLOADS_PER_HOUR: 120,
+  // Groups (docs/GROUPS.md).
+  GROUP_MAX_MEMBERS: 50,
+  GROUP_NAME_MAX: 50,
 });

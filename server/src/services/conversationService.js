@@ -7,7 +7,16 @@ import { Friendship, pairKeyOf } from '../models/Friendship.js';
 import { Message } from '../models/Message.js';
 import { User } from '../models/User.js';
 import { AppError } from '../utils/AppError.js';
-import { notFriends, receiptsShared, requireMember, visibleTo } from './conversationAccess.js';
+import {
+  canSend,
+  emitToMembers,
+  isGroupMember,
+  memberIdsOf,
+  notFriends,
+  receiptsShared,
+  requireMember,
+  visibleTo,
+} from './conversationAccess.js';
 import { serializeMessage, serializeMessages } from './messageView.js';
 import { emitToUser } from './realtime.js';
 import { blockedIdsFor, canMessage } from './relationshipService.js';
@@ -30,35 +39,69 @@ function peerView(peer) {
   return toPublicUser(peer);
 }
 
+export function groupPhotoView(conversation) {
+  return conversation.photo
+    ? `/api/media/${conversation.photo.attachmentId}?variant=avatar&v=${conversation.photo.v ?? 1}`
+    : null;
+}
+
 /**
  * Builds the list items for a set of my membership rows: a fixed number of batched queries,
  * plus one "last visible message" lookup and one bounded unread count per conversation.
+ * Direct chats carry `peer`; groups carry `group` (name, photo, members with their roles).
+ * `memberStates` = how far each other member has received/read (for the ticks).
  */
 async function summarize(me, members) {
   if (members.length === 0) return [];
   const conversationIds = members.map((m) => m.conversationId);
 
-  const [conversations, peerMembers, peers, friendships, blocked] = await Promise.all([
-    Conversation.find({ _id: { $in: conversationIds } }).select('lastSeq'),
+  const [conversations, otherMembers, friendships, blocked] = await Promise.all([
+    Conversation.find({ _id: { $in: conversationIds } }).select(
+      'type lastSeq name photo keyEpoch rotationNeeded',
+    ),
     ConversationMember.find({ conversationId: { $in: conversationIds }, userId: { $ne: me._id } }),
-    User.find({ _id: { $in: members.map((m) => m.peerId) } }),
     Friendship.find({ userIds: me._id, status: 'accepted' }).select('userIds'),
     blockedIdsFor(me._id),
   ]);
+  const users = await User.find({
+    _id: {
+      $in: [
+        ...new Set([
+          ...otherMembers.map((m) => String(m.userId)),
+          ...members.filter((m) => m.peerId).map((m) => String(m.peerId)),
+        ]),
+      ],
+    },
+  });
 
   const byId = (docs, key = '_id') => new Map(docs.map((doc) => [String(doc[key]), doc]));
   const conversationById = byId(conversations);
-  const peerMemberByConversation = byId(peerMembers, 'conversationId');
-  const peerById = byId(peers);
+  const userById = byId(users);
+  const othersByConversation = new Map();
+  for (const other of otherMembers) {
+    const list = othersByConversation.get(String(other.conversationId)) ?? [];
+    list.push(other);
+    othersByConversation.set(String(other.conversationId), list);
+  }
   const friendIds = new Set(
     friendships.flatMap((f) => f.userIds.map(String)).filter((id) => id !== String(me._id)),
   );
   const blockedIds = new Set(blocked.map(String));
 
+  /** One other member's receipt position; "read" only where both share read receipts. */
+  const stateOf = (other) => {
+    const user = userById.get(String(other.userId));
+    return {
+      userId: String(other.userId),
+      deliveredUpToSeq: other.deliveredUpToSeq ?? 0,
+      ...(receiptsShared(me, user) ? { readUpToSeq: other.readUpToSeq ?? 0 } : {}),
+    };
+  };
+
   return Promise.all(
     members.map(async (member) => {
-      const peer = peerById.get(String(member.peerId));
-      const peerMember = peerMemberByConversation.get(String(member.conversationId));
+      const conversation = conversationById.get(String(member.conversationId));
+      const others = othersByConversation.get(String(member.conversationId)) ?? [];
       const [lastMessage, unreadCount] = await Promise.all([
         Message.findOne(visibleTo(member)).sort({ seq: -1 }),
         Message.countDocuments(
@@ -67,15 +110,15 @@ async function summarize(me, members) {
             seq: { $gt: Math.max(member.readUpToSeq, member.clearedUpToSeq) },
             senderId: { $ne: me._id },
             unsentAt: null,
+            type: { $ne: 'system' },
           },
           { limit: UNREAD_CAP },
         ),
       ]);
-      const peerId = String(member.peerId);
-      return {
+      const common = {
         id: String(member.conversationId),
-        peer: peerView(peer),
-        lastSeq: conversationById.get(String(member.conversationId))?.lastSeq ?? 0,
+        type: conversation?.type ?? 'direct',
+        lastSeq: conversation?.lastSeq ?? 0,
         lastMessage: lastMessage ? await serializeMessage(lastMessage) : null,
         unreadCount,
         myState: {
@@ -85,34 +128,96 @@ async function summarize(me, members) {
           muted: Boolean(member.mutedUntil && member.mutedUntil > new Date()),
           accent: member.accent,
         },
+      };
+
+      if (isGroupMember(member)) {
+        return {
+          ...common,
+          peer: null,
+          group: {
+            name: conversation?.name ?? 'Group',
+            photo: conversation ? groupPhotoView(conversation) : null,
+            myRole: member.role,
+            keyEpoch: conversation?.keyEpoch ?? 0,
+            rotationNeeded: Boolean(conversation?.rotationNeeded),
+            members: [
+              { ...toPublicUser(me), role: member.role },
+              ...others.map((other) => ({
+                ...peerView(userById.get(String(other.userId))),
+                id: String(other.userId),
+                role: other.role,
+              })),
+            ],
+          },
+          memberStates: others.map(stateOf),
+          canMessage: true,
+        };
+      }
+
+      const peerMember = others[0];
+      const peer = userById.get(String(member.peerId));
+      const peerId = String(member.peerId);
+      return {
+        ...common,
+        peer: peerView(peer),
         peerState: {
           deliveredUpToSeq: peerMember?.deliveredUpToSeq ?? 0,
           ...(receiptsShared(me, peer) ? { readUpToSeq: peerMember?.readUpToSeq ?? 0 } : {}),
         },
+        memberStates: peerMember ? [stateOf(peerMember)] : [],
         canMessage: peer?.status === 'active' && friendIds.has(peerId) && !blockedIds.has(peerId),
       };
     }),
   );
 }
 
-/** Tells the other member how far I have received/read (respecting receipt privacy). */
+/**
+ * Tells the other members how far I have received/read. Read positions go only to people who
+ * share read receipts with me (both have them on).
+ */
 async function sendReceipt(me, member) {
-  const peer = await User.findById(member.peerId);
-  emitToUser(member.peerId, SERVER_EVENTS.RECEIPT_UPDATE, {
-    conversationId: String(member.conversationId),
-    userId: String(me._id),
-    deliveredUpToSeq: member.deliveredUpToSeq,
-    ...(receiptsShared(me, peer) ? { readUpToSeq: member.readUpToSeq } : {}),
-  });
+  const recipients = isGroupMember(member)
+    ? (await memberIdsOf(member.conversationId)).filter((id) => !id.equals(me._id))
+    : [member.peerId];
+  const users = await User.find({ _id: { $in: recipients } }).select('settings');
+  for (const user of users) {
+    emitToUser(user._id, SERVER_EVENTS.RECEIPT_UPDATE, {
+      conversationId: String(member.conversationId),
+      userId: String(me._id),
+      deliveredUpToSeq: member.deliveredUpToSeq,
+      ...(receiptsShared(me, user) ? { readUpToSeq: member.readUpToSeq } : {}),
+    });
+  }
 }
 
-/** My read position moved forward: update the other person's ticks and my other devices. */
+/** My read position moved forward: update the other people's ticks and my other devices. */
 async function announceRead(me, member) {
   await sendReceipt(me, member);
   emitToUser(me._id, SERVER_EVENTS.CONVERSATION_READ_SYNC, {
     conversationId: String(member.conversationId),
     readUpToSeq: member.readUpToSeq,
   });
+}
+
+const badEnvelope = () =>
+  new AppError(400, ERROR_CODES.VALIDATION_FAILED, 'Wrong message format for this chat');
+
+/** Group messages must use the current group key; direct ones the pairwise format. */
+export async function checkEnvelope(member, envelope) {
+  if (!isGroupMember(member)) {
+    if (envelope.v !== 1) throw badEnvelope();
+    return;
+  }
+  if (envelope.v !== 2) throw badEnvelope();
+  const conversation = await Conversation.findById(member.conversationId).select(
+    'keyEpoch rotationNeeded',
+  );
+  if (conversation.rotationNeeded) {
+    throw new AppError(409, ERROR_CODES.GROUP_KEY_ROTATION_NEEDED, 'The group needs a new key');
+  }
+  if (envelope.e !== conversation.keyEpoch) {
+    throw new AppError(409, ERROR_CODES.GROUP_KEY_OUTDATED, 'The group key changed');
+  }
 }
 
 /**
@@ -216,7 +321,8 @@ export function createConversationService({ logger, media, push }) {
       }
 
       const member = await requireMember(me, conversationId);
-      if (!(await canMessage(me._id, member.peerId))) throw notFriends();
+      if (!(await canSend(me, member))) throw notFriends();
+      await checkEnvelope(member, envelope);
       if (replyToId) {
         const original = await Message.findOne({ _id: replyToId, conversationId });
         if (!original || original.unsentAt) {
@@ -297,12 +403,14 @@ export function createConversationService({ logger, media, push }) {
       }
 
       const message = await serializeMessage(created);
-      emitToUser(me._id, SERVER_EVENTS.MESSAGE_NEW, { message });
-      emitToUser(member.peerId, SERVER_EVENTS.MESSAGE_NEW, { message });
+      const memberIds = await memberIdsOf(conversationId);
+      for (const userId of memberIds) emitToUser(userId, SERVER_EVENTS.MESSAGE_NEW, { message });
       // Not awaited: sending to push services must never slow down or fail the send.
-      push
-        ?.messageSent({ message: created, sender: me, recipientId: member.peerId })
-        .catch((err) => logger.warn({ err }, 'Push failed'));
+      for (const recipientId of memberIds.filter((id) => !id.equals(me._id))) {
+        push
+          ?.messageSent({ message: created, sender: me, recipientId })
+          .catch((err) => logger.warn({ err }, 'Push failed'));
+      }
       if (member.readUpToSeq < message.seq - 1) {
         await announceRead(me, await ConversationMember.findById(member._id));
       }
@@ -337,15 +445,16 @@ export function createConversationService({ logger, media, push }) {
       return { readUpToSeq: (updated ?? member).readUpToSeq };
     },
 
-    /** Relays "typing…" to the other member while messaging is allowed. */
+    /** Relays "typing…" to the other members while messaging is allowed. */
     async setTyping(me, conversationId, isTyping) {
       const member = await requireMember(me, conversationId);
-      if (!(await canMessage(me._id, member.peerId))) return;
-      emitToUser(member.peerId, SERVER_EVENTS.TYPING_UPDATE, {
-        conversationId: String(conversationId),
-        userId: String(me._id),
-        isTyping,
-      });
+      if (!(await canSend(me, member))) return;
+      await emitToMembers(
+        conversationId,
+        SERVER_EVENTS.TYPING_UPDATE,
+        { conversationId: String(conversationId), userId: String(me._id), isTyping },
+        { except: [me._id] },
+      );
     },
 
     /** "Clear chat": hides every current message for me only (the other person keeps theirs). */

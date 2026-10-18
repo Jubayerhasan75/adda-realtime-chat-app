@@ -43,6 +43,16 @@ export function toMessage(message, replyTo = null) {
     senderId: String(message.senderId),
     clientMessageId: message.clientMessageId,
     type: message.type,
+    // Group notices are plain: who did what to whom (the server knows the members anyway).
+    ...(message.type === 'system' && message.system
+      ? {
+          system: {
+            action: message.system.action,
+            targetIds: message.system.targetIds.map(String),
+            name: message.system.name ?? null,
+          },
+        }
+      : {}),
     envelope: unsent ? null : (message.envelope ?? null),
     attachments: unsent ? [] : (message.attachments ?? []).map(attachmentView),
     replyTo: unsent ? null : replyPreview(replyTo),

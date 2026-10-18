@@ -2,6 +2,8 @@ import mongoose from 'mongoose';
 import { ERROR_CODES } from '@chat/shared';
 import { ConversationMember } from '../models/ConversationMember.js';
 import { AppError } from '../utils/AppError.js';
+import { emitToUser } from './realtime.js';
+import { canMessage } from './relationshipService.js';
 
 // A conversation or message you can't access looks exactly like one that doesn't exist.
 export const conversationNotFound = () =>
@@ -29,4 +31,30 @@ export function visibleTo(member) {
     seq: { $gt: member.clearedUpToSeq },
     hiddenFor: { $ne: member.userId },
   };
+}
+
+/** Group conversations have no single peer (docs/GROUPS.md). */
+export const isGroupMember = (member) => !member.peerId;
+
+/**
+ * May I post in this conversation? Direct: only while we're friends and nobody blocked anyone.
+ * Group: being a member is enough (people you aren't friends with can share a group).
+ */
+export async function canSend(me, member) {
+  if (isGroupMember(member)) return true;
+  return canMessage(me._id, member.peerId);
+}
+
+/** User ids of everyone currently in a conversation. */
+export async function memberIdsOf(conversationId) {
+  const members = await ConversationMember.find({ conversationId }).select('userId');
+  return members.map((member) => member.userId);
+}
+
+/** Sends a live event to every member's devices (optionally not to some of them). */
+export async function emitToMembers(conversationId, event, payload, { except = [] } = {}) {
+  const skip = new Set(except.map(String));
+  for (const userId of await memberIdsOf(conversationId)) {
+    if (!skip.has(String(userId))) emitToUser(userId, event, payload);
+  }
 }

@@ -142,6 +142,29 @@ Password policy: 10–128 characters and not in a list of the most common passwo
 | POST        | /:id/read                   | V    | `{upToSeq}` — REST fallback of the socket event; same rules                                                                                                                                                                                                                                                                                                  |
 | GET         | /:id/pins                   | V    | Pinned messages (≤ 10, newest pin first)                                                                                                                                                                                                                                                                                                                     |
 
+### 2.6a Groups — `/api/groups` (docs/GROUPS.md)
+
+Group messages, history, receipts and chat settings use `/api/conversations` like direct chats; a
+group summary has `type: "group"`, `peer: null` and `group: { name, photo, myRole, keyEpoch,
+rotationNeeded, members[] }`. Every route answers 404 to non-members.
+
+| Method | Path                   | Who    | Body / result                                                                    |
+| ------ | ---------------------- | ------ | -------------------------------------------------------------------------------- |
+| POST   | `/`                    | anyone | `{ name, memberIds (≥ 2 friends), keyBoxes }` → 201 group summary                |
+| PATCH  | `/:id`                 | admin  | `{ name?, photoAttachmentId? \| null }`                                          |
+| POST   | `/:id/members`         | admin  | `{ userIds, keyBoxes }` (every epoch, so they can read the history)              |
+| DELETE | `/:id/members/:userId` | admin  | removes; the group then needs a new key                                          |
+| PATCH  | `/:id/members/:userId` | admin  | `{ role: "admin" \| "member" }` (at least one admin stays)                       |
+| POST   | `/:id/leave`           | member | 204; last admin → oldest member becomes admin; last member → group deleted       |
+| GET    | `/:id/keys`            | member | my key boxes `{ keyEpoch, rotationNeeded, boxes: [{ epoch, fromUserId, box }] }` |
+| POST   | `/:id/keys`            | member | `{ keyBoxes }`: share keys with members missing them                             |
+| POST   | `/:id/keys/request`    | member | asks online members to share keys (`group:keys-needed`)                          |
+| POST   | `/:id/keys/rotate`     | member | `{ epoch: current + 1, keyBoxes }` for every member                              |
+
+Errors: `GROUP_KEY_ROTATION_NEEDED` / `GROUP_KEY_OUTDATED` (409) on sends with an old key,
+`GROUP_FULL` (409) above 50 people. Socket events: `conversation:removed` (I left / was
+removed), `group:keys-needed`.
+
 ### 2.7 Messages
 
 | Method       | Path                                                           | Auth | Description                                                                                                                                                                                                |

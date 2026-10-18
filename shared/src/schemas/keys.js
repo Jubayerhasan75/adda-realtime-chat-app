@@ -54,3 +54,24 @@ export const envelopeSchema = z.strictObject({
   iv: base64url(16, 16),
   ct: base64url(22, 24_000),
 });
+
+/** A group message, encrypted with the group key of epoch `e` (docs/GROUPS.md §3). */
+export const groupEnvelopeSchema = z.strictObject({
+  v: z.literal(2),
+  e: z.number().int().min(1).max(1_000_000),
+  iv: base64url(16, 16),
+  ct: base64url(22, 24_000),
+});
+
+/** Either kind of message envelope; the server checks it matches the conversation type. */
+export const anyEnvelopeSchema = z.discriminatedUnion('v', [envelopeSchema, groupEnvelopeSchema]);
+
+/**
+ * One group key locked for one member: a direct-style envelope (ECDH between the giver's and
+ * the member's identity keys) around the 32-byte key of `epoch`.
+ */
+export const groupKeyBoxSchema = z.strictObject({
+  userId: z.string().regex(/^[a-f\d]{24}$/i, 'Invalid id'),
+  epoch: z.number().int().min(1).max(1_000_000),
+  box: envelopeSchema.extend({ ct: base64url(22, 200) }),
+});

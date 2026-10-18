@@ -2,13 +2,14 @@ import { createHash } from 'node:crypto';
 import mongoose from 'mongoose';
 import { ERROR_CODES, MEDIA_MAX_BYTES, mediaKindOf } from '@chat/shared';
 import { Attachment } from '../models/Attachment.js';
+import { Conversation } from '../models/Conversation.js';
 import { ConversationMember } from '../models/ConversationMember.js';
 import { Message } from '../models/Message.js';
 import { User } from '../models/User.js';
 import { AppError } from '../utils/AppError.js';
 import { FORMAT_MIME_TYPES, formatKind } from '../utils/sniffMedia.js';
-import { notFriends, requireMember } from './conversationAccess.js';
-import { blockStatus, canMessage } from './relationshipService.js';
+import { canSend, notFriends, requireMember } from './conversationAccess.js';
+import { blockStatus } from './relationshipService.js';
 import { toPrivateUser } from './userService.js';
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -108,7 +109,7 @@ export function createMediaService({ storage, logger }) {
       }
       if (purpose === 'message') {
         const member = await requireMember(me, conversationId);
-        if (!(await canMessage(me._id, member.peerId))) throw notFriends();
+        if (!(await canSend(me, member))) throw notFriends();
       }
       const unused = await Attachment.countDocuments({
         ownerId: me._id,
@@ -254,10 +255,18 @@ export function createMediaService({ storage, logger }) {
           status: 'active',
           'avatar.attachmentId': attachment._id,
         });
-        if (!owner) throw mediaNotFound();
-        if (!owner._id.equals(me._id)) {
-          const { iBlocked, blockedMe } = await blockStatus(me._id, owner._id);
-          if (iBlocked || blockedMe) throw mediaNotFound();
+        if (owner) {
+          if (!owner._id.equals(me._id)) {
+            const { iBlocked, blockedMe } = await blockStatus(me._id, owner._id);
+            if (iBlocked || blockedMe) throw mediaNotFound();
+          }
+        } else {
+          // A group photo: only the group's members may see it.
+          const group = await Conversation.findOne({ 'photo.attachmentId': attachment._id });
+          const member =
+            group &&
+            (await ConversationMember.exists({ conversationId: group._id, userId: me._id }));
+          if (!member) throw mediaNotFound();
         }
       } else {
         const message = await Message.findById(attachment.messageId);
@@ -278,6 +287,19 @@ export function createMediaService({ storage, logger }) {
       });
       if (!url) throw mediaNotFound();
       return url;
+    },
+
+    /** Takes a verified image upload of mine for a group photo (marks it as in use). */
+    async claimGroupPhoto(me, attachmentId) {
+      const attachment = await loadOwnUpload(me, attachmentId);
+      if (attachment.purpose !== 'avatar' || attachment.status !== 'ready') {
+        throw new AppError(409, ERROR_CODES.INVALID_STATE, 'This upload can’t be used as a photo');
+      }
+      await Attachment.updateOne(
+        { _id: attachment._id },
+        { $set: { status: 'attached', expiresAt: null } },
+      );
+      return attachment;
     },
 
     /** Makes a verified image upload my profile photo; the previous one is deleted. */

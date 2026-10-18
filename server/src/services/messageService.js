@@ -3,10 +3,17 @@ import { ERROR_CODES, LIMITS, SERVER_EVENTS } from '@chat/shared';
 import { ConversationMember } from '../models/ConversationMember.js';
 import { Message } from '../models/Message.js';
 import { AppError } from '../utils/AppError.js';
-import { messageNotFound, notFriends, requireMember, visibleTo } from './conversationAccess.js';
+import {
+  canSend,
+  isGroupMember,
+  memberIdsOf,
+  messageNotFound,
+  notFriends,
+  requireMember,
+  visibleTo,
+} from './conversationAccess.js';
 import { serializeMessage, serializeMessages } from './messageView.js';
 import { emitToUser } from './realtime.js';
-import { canMessage } from './relationshipService.js';
 
 const MINUTE = 60 * 1000;
 const EDIT_WINDOW_MS = LIMITS.MESSAGE_EDIT_WINDOW_MINUTES * MINUTE;
@@ -15,6 +22,13 @@ const UNSEND_WINDOW_MS = LIMITS.MESSAGE_UNSEND_WINDOW_HOURS * 60 * MINUTE;
 const notYours = (action) =>
   new AppError(403, ERROR_CODES.FORBIDDEN, `You can only ${action} your own messages`);
 const unsentAlready = () => new AppError(409, ERROR_CODES.INVALID_STATE, 'This message was unsent');
+
+/** Group notices ("Nadia added Arif") can't be reacted to, pinned or unsent. */
+function requireNotSystem(message) {
+  if (message.type === 'system') {
+    throw new AppError(409, ERROR_CODES.INVALID_STATE, 'This message can’t be changed');
+  }
+}
 
 /**
  * Loads a message for a member of its conversation. Messages in other people's chats, deleted
@@ -33,17 +47,25 @@ async function loadVisible(me, messageId) {
   return { message, member };
 }
 
-/** Sends the new state of a changed message to both participants. */
+/** Sends the new state of a changed message to everyone in the conversation. */
 async function broadcastUpdate(message, member) {
   const serialized = await serializeMessage(message);
-  emitToUser(member.userId, SERVER_EVENTS.MESSAGE_UPDATED, { message: serialized });
-  emitToUser(member.peerId, SERVER_EVENTS.MESSAGE_UPDATED, { message: serialized });
+  for (const userId of await memberIdsOf(member.conversationId)) {
+    emitToUser(userId, SERVER_EVENTS.MESSAGE_UPDATED, { message: serialized });
+  }
   return serialized;
 }
 
-/** Changing content (edit, react) requires still being allowed to message the other person. */
+/** Changing content (edit, react) requires still being allowed to post in the chat. */
 async function requireCanMessage(me, member) {
-  if (!(await canMessage(me._id, member.peerId))) throw notFriends();
+  if (!(await canSend(me, member))) throw notFriends();
+}
+
+/** An edit must use the chat's kind of encryption (pairwise or group key). */
+function requireEnvelopeKind(member, envelope) {
+  if ((envelope.v === 2) !== isGroupMember(member)) {
+    throw new AppError(400, ERROR_CODES.VALIDATION_FAILED, 'Wrong message format for this chat');
+  }
 }
 
 /**
@@ -59,9 +81,10 @@ export function createMessageService({ media }) {
       const { message, member } = await loadVisible(me, messageId);
       if (!message.senderId.equals(me._id)) throw notYours('edit');
       if (message.unsentAt) throw unsentAlready();
-      if (message.type === 'media') {
-        throw new AppError(409, ERROR_CODES.INVALID_STATE, 'Photos and videos can’t be edited');
+      if (message.type === 'media' || message.type === 'system') {
+        throw new AppError(409, ERROR_CODES.INVALID_STATE, 'This message can’t be edited');
       }
+      requireEnvelopeKind(member, envelope);
       if (Date.now() - message.createdAt > EDIT_WINDOW_MS) {
         throw new AppError(
           409,
@@ -97,6 +120,7 @@ export function createMessageService({ media }) {
         return null;
       }
 
+      requireNotSystem(message);
       if (!message.senderId.equals(me._id)) throw notYours('unsend');
       if (message.unsentAt) return serializeMessage(message);
       if (Date.now() - message.createdAt > UNSEND_WINDOW_MS) {
@@ -132,6 +156,7 @@ export function createMessageService({ media }) {
     async react(me, messageId, emoji) {
       const { message, member } = await loadVisible(me, messageId);
       if (message.unsentAt) throw unsentAlready();
+      requireNotSystem(message);
       await requireCanMessage(me, member);
 
       await Message.updateOne({ _id: message._id }, { $pull: { reactions: { userId: me._id } } });
@@ -157,6 +182,7 @@ export function createMessageService({ media }) {
     async pin(me, messageId) {
       const { message, member } = await loadVisible(me, messageId);
       if (message.unsentAt) throw unsentAlready();
+      requireNotSystem(message);
       if (message.pinnedAt) return serializeMessage(message);
       const pinned = await Message.countDocuments({
         conversationId: message.conversationId,

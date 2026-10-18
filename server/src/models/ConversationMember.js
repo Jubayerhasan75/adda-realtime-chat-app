@@ -12,7 +12,9 @@ const memberSchema = new Schema(
   {
     conversationId: { type: Schema.Types.ObjectId, ref: 'Conversation', required: true },
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-    peerId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    // Direct chats: the other person. Groups: null (see `role`).
+    peerId: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+    role: { type: String, enum: ['admin', 'member', null], default: null },
     lastMessageAt: { type: Date, default: null },
     deliveredUpToSeq: { type: Number, default: 0 },
     readUpToSeq: { type: Number, default: 0 },
