@@ -8,7 +8,11 @@ export function createQueryClient() {
   const onError = (error) => {
     if (error?.code !== 'UNAUTHENTICATED') return;
     setCsrfToken(null);
-    queryClient.setQueryData(SESSION_KEY, { user: null, csrfToken: null });
+    // A request that was still running while I logged out isn't an expired session: keep the
+    // logout deliberate, so the login page doesn't offer to return to where I was.
+    const current = queryClient.getQueryData(SESSION_KEY);
+    const signedOut = Boolean(current?.signingOut || current?.signedOut);
+    queryClient.setQueryData(SESSION_KEY, { user: null, csrfToken: null, signedOut });
   };
 
   const queryClient = new QueryClient({

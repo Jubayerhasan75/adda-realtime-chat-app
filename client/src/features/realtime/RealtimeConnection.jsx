@@ -135,8 +135,9 @@ export function RealtimeConnection({ userId }) {
       // The server ends a connection when its login session ends (logout elsewhere, revoked,
       // password changed): re-check the session, which sends the user to login if it's gone.
       // Our own logout also closes the connection; that case is handled by the logout itself.
-      const signingOut = queryClient.getQueryData(SESSION_KEY)?.signingOut;
-      if (reason === 'io server disconnect' && !signingOut) {
+      const session = queryClient.getQueryData(SESSION_KEY);
+      const loggingOut = session?.signingOut || session?.signedOut;
+      if (reason === 'io server disconnect' && !loggingOut) {
         queryClient.invalidateQueries({ queryKey: SESSION_KEY });
       }
     });
