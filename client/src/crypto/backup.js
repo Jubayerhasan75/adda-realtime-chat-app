@@ -87,17 +87,24 @@ export async function decryptKeyring(backup, passphrase) {
   return JSON.parse(fromUtf8(new Uint8Array(plaintext))).keys;
 }
 
+/** What a recovery password must contain (shown as a live checklist while typing). */
+export const RECOVERY_RULES = [
+  { label: 'At least 6 characters', test: (value) => value.length >= 6 },
+  { label: 'An uppercase letter (A–Z)', test: (value) => /[A-Z]/.test(value) },
+  { label: 'A lowercase letter (a–z)', test: (value) => /[a-z]/.test(value) },
+  { label: 'A number (0–9)', test: (value) => /\d/.test(value) },
+  { label: 'A symbol (like ! @ # $ %)', test: (value) => /[^A-Za-z0-9\s]/.test(value) },
+];
+
 /**
- * Is a recovery passphrase strong enough? Long enough to resist guessing even if the backup
- * is stolen: 4+ words, or 14+ characters mixing kinds, and never a lone common word.
+ * Why a new recovery password isn't accepted yet, or null. Every guess against the backup costs
+ * an Argon2id run (64 MiB, 3 passes), so a short password that mixes all four kinds of
+ * characters is still slow to crack.
  */
 export function passphraseProblem(passphrase) {
   const value = passphrase.normalize('NFKC').trim();
-  const words = value.split(/\s+/).filter((word) => word.length >= 3);
-  const kinds = [/[a-z]/, /[A-Z]/, /\d/, /[^A-Za-z0-9\s]/].filter((re) => re.test(value)).length;
-  if (value.length < 12) return 'Use at least 12 characters (4 words or more is easiest).';
-  if (new Set(value.toLowerCase()).size < 6) return 'Use more different characters.';
-  if (words.length >= 4) return null;
-  if (value.length >= 14 && kinds >= 3) return null;
-  return 'Use 4 or more words, or 14+ characters mixing letters, numbers and symbols.';
+  const missing = RECOVERY_RULES.find((rule) => !rule.test(value));
+  if (missing) return `Add: ${missing.label.toLowerCase()}`;
+  if (new Set(value).size < 5) return 'Use more different characters.';
+  return null;
 }

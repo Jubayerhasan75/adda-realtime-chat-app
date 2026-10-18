@@ -16,8 +16,8 @@ export const PASSWORD = 'purple-river-lamp-42';
 /** Files written by auth.setup.js for the shared signed-in account. */
 export const SIGNED_IN_STATE = 'e2e/.auth/signed-in.json';
 export const SHARED_CHAT = 'e2e/.auth/shared-chat.json';
-/** Every test account's end-to-end encryption recovery passphrase. */
-export const TEST_PASSPHRASE = 'mango river cloud seven';
+/** Every test account's end-to-end encryption recovery password. */
+export const TEST_PASSPHRASE = 'Mango#river7';
 
 /**
  * Collects console errors and uncaught page errors (CSP violations are reported as console
@@ -107,13 +107,13 @@ export async function createVerifiedAccount(request, { username, displayName = u
 export async function autoUnlock(page) {
   const unlock = page.getByRole('heading', { name: 'Unlock your chats' });
   await page.addLocatorHandler(unlock, async () => {
-    await page.getByLabel('Recovery passphrase').fill(TEST_PASSPHRASE);
+    await page.getByLabel('Recovery password', { exact: true }).fill(TEST_PASSPHRASE);
     await page.getByRole('button', { name: 'Unlock', exact: true }).click();
     await expect(unlock).toBeHidden({ timeout: 30_000 });
   });
   const protect = page.getByRole('heading', { name: 'Protect your chats' });
   await page.addLocatorHandler(protect, async () => {
-    await page.getByLabel('Recovery passphrase').fill(TEST_PASSPHRASE);
+    await page.getByLabel('Recovery password', { exact: true }).fill(TEST_PASSPHRASE);
     await page.getByLabel('Type it again').fill(TEST_PASSPHRASE);
     await page.getByRole('checkbox').check();
     await page.getByRole('button', { name: 'Turn on encryption' }).click();
@@ -178,7 +178,7 @@ export async function openApp(page) {
   const unlock = page.getByRole('heading', { name: 'Unlock your chats' });
   await expect(chats.or(unlock).first()).toBeVisible({ timeout: 30_000 });
   if (await unlock.isVisible()) {
-    await page.getByLabel('Recovery passphrase').fill(TEST_PASSPHRASE);
+    await page.getByLabel('Recovery password', { exact: true }).fill(TEST_PASSPHRASE);
     await page.getByRole('button', { name: 'Unlock', exact: true }).click();
   }
   await expect(chats).toBeVisible({ timeout: 30_000 });

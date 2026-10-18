@@ -111,9 +111,14 @@ describe('passphrase-locked key backup', () => {
   });
 
   it('asks for a strong passphrase', () => {
-    expect(passphraseProblem('password123')).toBeTruthy();
-    expect(passphraseProblem('aaaaaaaaaaaaaaaa')).toBeTruthy();
-    expect(passphraseProblem('mango river cloud seven')).toBeNull();
-    expect(passphraseProblem('Dh@ka-2026!rain')).toBeNull();
+    expect(passphraseProblem('password123')).toBeTruthy(); // no uppercase, no symbol
+    expect(passphraseProblem('Ab1!')).toMatch(/at least 6/);
+    expect(passphraseProblem('abcde1!')).toMatch(/uppercase/);
+    expect(passphraseProblem('ABCDE1!')).toMatch(/lowercase/);
+    expect(passphraseProblem('Abcdef!')).toMatch(/number/);
+    expect(passphraseProblem('Abcde12')).toMatch(/symbol/);
+    expect(passphraseProblem('Aa1!Aa1!')).toMatch(/different/);
+    expect(passphraseProblem('Dh@ka7')).toBeNull();
+    expect(passphraseProblem('Mango#river7')).toBeNull();
   });
 });

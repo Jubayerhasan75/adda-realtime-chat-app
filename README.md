@@ -167,7 +167,7 @@ Security was designed in from the start: threat model first, then code, then tes
 - Two friends derive the same chat key on their own devices (ECDH + **HKDF-SHA-256**). The key never travels over the network.
 - Each message is encrypted with **AES-256-GCM** and a fresh random IV. The chat, sender and message ids are bound into the encryption, so a message can't be moved, swapped or replayed into another chat without being detected.
 - **What gets encrypted:** text, captions, edits, reply quotes and the chosen GIF. The server stores and forwards only encrypted envelopes and **can't read them**.
-- **New devices:** your keys are backed up **encrypted with your recovery passphrase** using **Argon2id** (64 MiB memory, 3 passes), which makes guessing the passphrase extremely slow and expensive. The server only holds this locked backup.
+- **New devices:** your keys are backed up **encrypted with your recovery password** (at least 6 characters with uppercase, lowercase, a number and a symbol) using **Argon2id** (64 MiB memory, 3 passes), which makes every guess slow and expensive. The server only holds this locked backup.
 - Changing or resetting encryption keys requires your account password, is recorded in the security log, and triggers an email alert.
 - Only standard, well-reviewed cryptography is used: the browser's built-in Web Crypto plus an established Argon2 implementation. No home-made algorithms.
 - **Honest limits** are documented: the server still sees metadata such as who chats with whom and when (as in every messenger), there's no forward secrecy yet, and photo/video encryption is in progress. See [docs/E2EE.md](docs/E2EE.md).
@@ -215,7 +215,7 @@ MongoDB with **15 collections**, strict schemas and indexes chosen for each quer
 | `Conversation`, `ConversationMember` | One-to-one chats; each person's own state (unread, delivered/seen position, mute, colour, cleared) |
 | `Message`                            | Encrypted envelopes, sequence number, reactions, pins, edits, unsend                               |
 | `Attachment`                         | Uploaded media and its lifecycle (pending → ready → attached → deleted)                            |
-| `IdentityKey`, `KeyBackup`           | Public encryption keys; passphrase-locked key backups                                              |
+| `IdentityKey`, `KeyBackup`           | Public encryption keys; password-locked key backups                                                |
 | `PushSubscription`, `Notification`   | Devices that receive push; the in-app notification feed                                            |
 | `Report`, `AuditEvent`               | Abuse reports; security log                                                                        |
 

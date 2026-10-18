@@ -1,10 +1,10 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { KeyRound, LockKeyhole, ShieldCheck } from 'lucide-react';
+import { Circle, CircleCheck, KeyRound, LockKeyhole, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 import { Alert } from '../../components/ui/Alert.jsx';
 import { Button } from '../../components/ui/Button.jsx';
 import { PasswordField } from '../../components/ui/PasswordField.jsx';
-import { passphraseProblem } from '../../crypto/backup.js';
+import { RECOVERY_RULES, passphraseProblem } from '../../crypto/backup.js';
 import { AuthLayout } from '../../layouts/AuthLayout.jsx';
 import { useLogout } from '../auth/api.js';
 import { MY_KEYS_KEY, resetEncryption, restoreEncryption, setUpEncryption } from './keyring.js';
@@ -18,20 +18,48 @@ function LogoutLink() {
   );
 }
 
-/** Choose + confirm a recovery passphrase, with a strength check. */
+/** Live checklist of the recovery password rules: each turns green when it's met. */
+function RuleChecklist({ value }) {
+  return (
+    <ul aria-label="Recovery password rules" className="flex flex-col gap-1 text-sm">
+      {RECOVERY_RULES.map((rule) => {
+        const met = rule.test(value.normalize('NFKC').trim());
+        return (
+          <li
+            key={rule.label}
+            className={
+              met ? 'flex items-center gap-2 text-success' : 'flex items-center gap-2 text-muted'
+            }
+          >
+            {met ? (
+              <CircleCheck aria-hidden="true" className="size-4 shrink-0" />
+            ) : (
+              <Circle aria-hidden="true" className="size-4 shrink-0" />
+            )}
+            {rule.label}
+            <span className="sr-only">{met ? '(done)' : '(missing)'}</span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/** Choose + confirm a recovery password, with the rules checked as you type. */
 function NewPassphraseFields({ value, confirm, onChange, onConfirmChange, showErrors }) {
   const problem = passphraseProblem(value);
   const mismatch = confirm.length > 0 && confirm !== value;
   return (
     <>
       <PasswordField
-        label="Recovery passphrase"
+        label="Recovery password"
         autoComplete="new-password"
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        hint="Tip: 4 or more random words that only you know — easy to remember, hard to guess."
+        hint="Use a different one from your account password."
         error={showErrors && problem ? problem : undefined}
       />
+      <RuleChecklist value={value} />
       <PasswordField
         label="Type it again"
         autoComplete="new-password"
@@ -78,7 +106,7 @@ export function SetupEncryption({ user }) {
       <form noValidate onSubmit={submit} className="flex flex-col gap-4">
         <p className="flex gap-2 text-sm text-text">
           <ShieldCheck aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-success" />
-          Create a recovery passphrase. You’ll need it to read your messages on a new phone or after
+          Create a recovery password. You’ll need it to read your messages on a new phone or after
           logging out. It never leaves this device.
         </p>
         <NewPassphraseFields
@@ -101,7 +129,7 @@ export function SetupEncryption({ user }) {
           </span>
         </label>
         {submitted && !saved && (
-          <p className="text-sm text-danger">Please confirm you saved your passphrase.</p>
+          <p className="text-sm text-danger">Please confirm you saved your recovery password.</p>
         )}
         {error && <Alert tone="error">{error}</Alert>}
         <Button type="submit" loading={busy} fullWidth>
@@ -113,7 +141,7 @@ export function SetupEncryption({ user }) {
   );
 }
 
-/** Keys exist but not on this device: unlock with the passphrase, or reset if it's lost. */
+/** Keys exist but not on this device: unlock with the recovery password, or reset if it's lost. */
 export function RestoreEncryption({ user, mine }) {
   const queryClient = useQueryClient();
   const [mode, setMode] = useState('unlock');
@@ -142,10 +170,10 @@ export function RestoreEncryption({ user, mine }) {
     return (
       <AuthLayout
         title="Reset encryption"
-        subtitle="Only if you lost your recovery passphrase."
+        subtitle="Only if you lost your recovery password."
         footer={
           <button type="button" className="underline" onClick={() => setMode('unlock')}>
-            I found my passphrase
+            I found my recovery password
           </button>
         }
       >
@@ -189,7 +217,7 @@ export function RestoreEncryption({ user, mine }) {
   return (
     <AuthLayout
       title="Unlock your chats"
-      subtitle="Enter your recovery passphrase to read your encrypted messages on this device."
+      subtitle="Enter your recovery password to read your encrypted messages on this device."
       footer={<LogoutLink />}
     >
       <form
@@ -201,7 +229,7 @@ export function RestoreEncryption({ user, mine }) {
         }}
       >
         <PasswordField
-          label="Recovery passphrase"
+          label="Recovery password"
           autoComplete="current-password"
           value={passphrase}
           onChange={(event) => setPassphrase(event.target.value)}
@@ -219,7 +247,7 @@ export function RestoreEncryption({ user, mine }) {
             setMode('reset');
           }}
         >
-          Forgot your passphrase?
+          Forgot your recovery password?
         </button>
       </form>
     </AuthLayout>
