@@ -11,6 +11,7 @@ import { ChatScreen } from '../features/chat/pages/ChatScreen.jsx';
 import { ChatsPage } from '../features/chat/pages/ChatsPage.jsx';
 import { NoChatSelected } from '../features/chat/pages/NoChatSelected.jsx';
 import { FriendsPage } from '../features/friends/FriendsPage.jsx';
+import { NotificationsPage } from '../features/notifications/NotificationsPage.jsx';
 import { settingsRoutes } from '../features/settings/routes.jsx';
 import { SystemStatusPage } from '../features/system/SystemStatusPage.jsx';
 import { AppShell } from '../layouts/AppShell.jsx';
@@ -34,6 +35,7 @@ export const routes = [
             ],
           },
           { path: 'friends', element: <FriendsPage /> },
+          { path: 'notifications', element: <NotificationsPage /> },
           settingsRoutes,
         ],
       },

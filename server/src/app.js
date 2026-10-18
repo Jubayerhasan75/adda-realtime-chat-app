@@ -40,7 +40,8 @@ import { createDirectoryService } from './services/directoryService.js';
 import { createFriendService } from './services/friendService.js';
 import { createKeyService } from './services/keyService.js';
 import { createMediaService } from './services/mediaService.js';
-import { onNotificationCreated } from './services/notificationService.js';
+import { onAuditRecorded } from './services/auditService.js';
+import { notifySecurity, onNotificationCreated } from './services/notificationService.js';
 import { createPresenceService } from './services/presenceService.js';
 import { createPushService } from './services/pushService.js';
 import { createSocketTickets } from './sockets/tickets.js';
@@ -70,6 +71,7 @@ export function createApp({
   onNotificationCreated((event) =>
     push.friendEvent(event).catch((err) => logger.warn({ err }, 'Push failed')),
   );
+  onAuditRecorded(notifySecurity);
 
   app.locals.env = env;
   app.locals.sessionCookie = sessionCookie;

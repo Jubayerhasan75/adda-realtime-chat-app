@@ -10,7 +10,14 @@ import { AuditEvent } from '../models/AuditEvent.js';
 export async function recordAudit(logger, type, data) {
   try {
     await AuditEvent.create({ type, ...data });
+    await auditHook?.({ type, ...data });
   } catch (err) {
     logger.error({ err, type }, 'Failed to record audit event');
   }
+}
+
+// Turns some events into security alerts in the user's notification feed (set by app.js).
+let auditHook = null;
+export function onAuditRecorded(hook) {
+  auditHook = hook;
 }

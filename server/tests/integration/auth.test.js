@@ -512,3 +512,37 @@ describe('development mailbox', () => {
     await request(smtpApp).get('/api/dev/mailbox').expect(404);
   });
 });
+
+describe('security alerts in the notification feed', () => {
+  it('a sign-in on another device and a password change show up as alerts', async () => {
+    const { agent, csrfToken } = await createVerifiedUser(app);
+    const feed = async () => (await agent.get('/api/notifications').expect(200)).body.data;
+    // The first sign-in is not an alert: nobody else could be using the account.
+    expect((await feed()).items).toEqual([]);
+
+    const phone = browserAgent(app).set(
+      'User-Agent',
+      'Mozilla/5.0 (Linux; Android 15) AppleWebKit/537.36 Chrome/140.0 Mobile Safari/537.36',
+    );
+    await phone
+      .post('/api/auth/login')
+      .send({ identifier: 'nadia', password: PASSWORD })
+      .expect(200);
+    const afterLogin = await feed();
+    expect(afterLogin.unreadCount).toBe(1);
+    expect(afterLogin.items[0]).toMatchObject({
+      type: 'security',
+      event: 'login',
+      device: 'Chrome on Android',
+      actor: null,
+    });
+
+    await agent
+      .post('/api/auth/change-password')
+      .set('X-CSRF-Token', csrfToken)
+      .send({ currentPassword: PASSWORD, newPassword: 'green-mountain-tea-77' })
+      .expect(200);
+    const after = (await agent.get('/api/notifications').expect(200)).body.data;
+    expect(after.items.map((item) => item.event)).toEqual(['password_changed', 'login']);
+  });
+});

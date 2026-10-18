@@ -1,9 +1,10 @@
-import { MessageCircle, Settings, Users } from 'lucide-react';
+import { Bell, MessageCircle, Settings, Users } from 'lucide-react';
 import { useEffect } from 'react';
 import { NavLink, Outlet, useMatch } from 'react-router';
 import { Badge } from '../components/ui/Badge.jsx';
 import { ToastRegion } from '../components/ui/Toast.jsx';
 import { reportDelivered, useConversations } from '../features/chat/api.js';
+import { useFriendRequests } from '../features/friends/api.js';
 import { useNotifications } from '../features/notifications/api.js';
 import { WhatsNew } from '../features/pwa/WhatsNew.jsx';
 import { ConnectionStatus } from '../features/realtime/ConnectionStatus.jsx';
@@ -14,6 +15,7 @@ import { cn } from '../lib/cn.js';
 const NAV_ITEMS = [
   { to: '/chats', label: 'Chats', Icon: MessageCircle },
   { to: '/friends', label: 'Friends', Icon: Users },
+  { to: '/notifications', label: 'Notifications', Icon: Bell },
   { to: '/settings', label: 'Settings', Icon: Settings },
 ];
 
@@ -57,10 +59,12 @@ export function AppShell() {
   useVisualViewport();
   const inChat = useMatch('/chats/:conversationId');
   const notifications = useNotifications();
+  const incomingRequests = useFriendRequests('incoming');
   const conversations = useConversations();
   const counts = {
     '/chats': conversations.data?.filter((c) => c.unreadCount > 0).length ?? 0,
-    '/friends': notifications.data?.unreadCount ?? 0,
+    '/friends': incomingRequests.data?.length ?? 0,
+    '/notifications': notifications.data?.unreadCount ?? 0,
   };
 
   return (
