@@ -1,0 +1,42 @@
+{
+  "name": "adda",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "workspaces": [
+    "shared",
+    "server",
+    "client"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "concurrently -n server,client -c magenta,cyan \"npm run dev -w server\" \"npm run dev -w client\"",
+    "dev:phone": "concurrently -n server,client -c magenta,cyan \"npm run dev -w server\" \"npm run dev -w client -- --host\"",
+    "build": "npm run build -w client",
+    "start": "npm start -w server",
+    "app:local": "npm run build && node --env-file-if-exists=server/.env scripts/start-local.mjs",
+    "lint": "eslint . && npm run lint:cycles && node scripts/check-hidden-chars.js",
+    "lint:cycles": "madge --circular --extensions js,jsx server/src client/src shared/src",
+    "format": "prettier --write . --ignore-path .gitignore --ignore-path .prettierignore --ignore-path .git/info/exclude",
+    "format:check": "prettier --check . --ignore-path .gitignore --ignore-path .prettierignore --ignore-path .git/info/exclude",
+    "test": "vitest run",
+    "test:e2e": "npm run build && playwright test",
+    "check": "npm run lint && npm run format:check && npm test && npm run build"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@playwright/test": "1.64.1",
+    "concurrently": "10.0.6",
+    "eslint": "10.12.0",
+    "eslint-config-prettier": "10.1.8",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "eslint-plugin-react-refresh": "0.5.7",
+    "globals": "17.13.0",
+    "madge": "8.0.0",
+    "mongodb-memory-server": "11.3.0",
+    "prettier": "3.9.10",
+    "vitest": "5.0.5"
+  }
+}

@@ -1,0 +1,219 @@
+import { Ban, Lock, MoreHorizontal, Pin } from 'lucide-react';
+import { useLongPress } from '../../../hooks/useLongPress.js';
+import { cn } from '../../../lib/cn.js';
+import { formatTime } from '../../../lib/format.js';
+import { highlightText } from '../../../lib/highlight.jsx';
+import { GifImage, MediaGrid } from '../../media/components/MediaGrid.jsx';
+import { messageSummary } from '../lib/messageSummary.js';
+import { MessageStatus } from './MessageStatus.jsx';
+
+/** Reaction chips under a bubble: one per emoji with a count; tapping toggles my reaction. */
+function Reactions({ reactions, currentUserId, onToggle, isOwn }) {
+  const groups = new Map();
+  for (const { emoji, userId } of reactions) {
+    const group = groups.get(emoji) ?? { emoji, count: 0, mine: false };
+    group.count += 1;
+    group.mine ||= userId === currentUserId;
+    groups.set(emoji, group);
+  }
+  return (
+    <div className={cn('-mt-1.5 flex gap-1', isOwn ? 'mr-2 justify-end' : 'ml-2')}>
+      {[...groups.values()].map(({ emoji, count, mine }) => (
+        <button
+          key={emoji}
+          type="button"
+          onClick={() => onToggle?.(emoji, mine)}
+          aria-pressed={mine}
+          aria-label={`${emoji} ${count}${mine ? ', including you. Tap to remove' : ''}`}
+          className={cn(
+            'relative flex items-center gap-0.5 rounded-full border bg-surface px-1.5 py-0.5 text-sm shadow-sm',
+            mine ? 'border-primary' : 'border-border',
+          )}
+        >
+          {emoji}
+          {count > 1 && <span className="text-xs text-muted">{count}</span>}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** Quoted original inside a reply; tapping it jumps to the original message. */
+function ReplyQuote({ replyTo, authorName, isOwn, onJump }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onJump?.(replyTo.id)}
+      className={cn(
+        'mb-1 block w-full rounded-md border-l-4 px-2 py-1 text-left text-xs',
+        isOwn ? 'border-on-bubble-out/60 bg-black/15' : 'border-primary bg-surface-muted',
+      )}
+    >
+      <span className="block font-semibold">{authorName}</span>
+      <span className={cn('line-clamp-2', replyTo.unsent && 'italic opacity-80')}>
+        {messageSummary(replyTo)}
+      </span>
+    </button>
+  );
+}
+
+/**
+ * One message. Corner rounding follows its position in a sender group. Long-press (touch),
+ * right-click or the ⋯ button opens the actions; unsent messages keep a placeholder.
+ *
+ * @param {{
+ *   message: object, isOwn: boolean, isFirstInGroup: boolean, isLastInGroup: boolean,
+ *   currentUserId?: string, peerName?: string, highlightQuery?: string,
+ *   onRetry?: () => void, onDiscard?: () => void, onOpenMenu?: (message: object) => void,
+ *   onToggleReaction?: (message: object, emoji: string, mine: boolean) => void,
+ *   onJumpTo?: (messageId: string) => void,
+ *   onOpenMedia?: (message: object, index: number) => void,
+ * }} props
+ */
+export function MessageBubble({
+  message,
+  isOwn,
+  isFirstInGroup,
+  isLastInGroup,
+  currentUserId,
+  peerName = 'Them',
+  highlightQuery = '',
+  onRetry,
+  onDiscard,
+  onOpenMenu,
+  onToggleReaction,
+  onJumpTo,
+  onOpenMedia,
+}) {
+  const failed = message.status === 'failed';
+  const unsent = Boolean(message.unsentAt);
+  const canOpenMenu = Boolean(onOpenMenu) && !message.pending;
+  const longPress = useLongPress(() => onOpenMenu?.(message));
+  const replyAuthor = message.replyTo?.senderId === currentUserId ? 'You' : peerName;
+  const attachments = unsent ? [] : (message.attachments ?? []);
+  const gif = unsent ? null : message.gif;
+  const hasMedia = attachments.length > 0 || Boolean(gif);
+
+  return (
+    <div
+      id={`message-${message.id}`}
+      className={cn(
+        'group flex flex-col px-3 sm:px-4',
+        isOwn ? 'items-end' : 'items-start',
+        isFirstInGroup ? 'mt-2' : 'mt-0.5',
+      )}
+    >
+      <div className={cn('flex max-w-full items-center gap-1', isOwn && 'flex-row-reverse')}>
+        <div
+          {...(canOpenMenu ? longPress : {})}
+          className={cn(
+            'relative max-w-[min(80vw,34rem)] rounded-bubble shadow-sm select-text [-webkit-touch-callout:none]',
+            hasMedia ? 'p-1 pb-1' : 'px-3 pt-1.5 pb-1',
+            'transition-shadow duration-(--duration-slow) [[data-flash=true]_&]:ring-4 [[data-flash=true]_&]:ring-primary',
+            isOwn ? 'bg-bubble-out text-on-bubble-out' : 'bg-bubble-in text-on-bubble-in',
+            isOwn && !isFirstInGroup && 'rounded-tr-md',
+            isOwn && !isLastInGroup && 'rounded-br-md',
+            isOwn && isLastInGroup && 'rounded-br-sm',
+            !isOwn && !isFirstInGroup && 'rounded-tl-md',
+            !isOwn && !isLastInGroup && 'rounded-bl-md',
+            !isOwn && isLastInGroup && 'rounded-bl-sm',
+            failed && 'opacity-70',
+          )}
+        >
+          {message.replyTo && (
+            <ReplyQuote
+              replyTo={message.replyTo}
+              authorName={replyAuthor}
+              isOwn={isOwn}
+              onJump={onJumpTo}
+            />
+          )}
+          {message.undecryptable && !unsent ? (
+            <p className="flex items-center gap-1.5 text-[15px] italic opacity-80">
+              <Lock aria-hidden="true" className="size-4" />
+              Can’t be decrypted on this device
+            </p>
+          ) : unsent ? (
+            <p className="flex items-center gap-1.5 text-[15px] italic opacity-80">
+              <Ban aria-hidden="true" className="size-4" />
+              {isOwn ? 'You unsent a message' : 'This message was unsent'}
+            </p>
+          ) : (
+            <>
+              {attachments.length > 0 && (
+                <MediaGrid
+                  attachments={attachments}
+                  onOpen={(index) => onOpenMedia?.(message, index)}
+                />
+              )}
+              {gif && <GifImage gif={gif} />}
+              {message.text && (
+                <p
+                  className={cn(
+                    'text-[15px] leading-snug break-words whitespace-pre-wrap [overflow-wrap:anywhere]',
+                    hasMedia && 'max-w-[min(260px,62vw)] px-2 pt-1',
+                  )}
+                >
+                  {highlightText(message.text, highlightQuery)}
+                </p>
+              )}
+            </>
+          )}
+          <span
+            className={cn(
+              'float-right mt-0.5 ml-3 flex translate-y-0.5 items-center gap-1 text-[11px] tabular-nums',
+              hasMedia && 'mr-1.5',
+              isOwn ? 'text-on-bubble-out/75' : 'text-muted',
+            )}
+          >
+            {message.pinnedAt && <Pin aria-label="Pinned" className="size-3" />}
+            {message.editedAt && !unsent && <span>edited</span>}
+            <time dateTime={message.createdAt.toISOString()}>{formatTime(message.createdAt)}</time>
+            {isOwn && message.status && !unsent && <MessageStatus status={message.status} />}
+          </span>
+        </div>
+        {canOpenMenu && (
+          <button
+            type="button"
+            onClick={() => onOpenMenu(message)}
+            aria-label="Message actions"
+            className="flex size-8 shrink-0 items-center justify-center rounded-full text-muted opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:bg-surface-hover pointer-coarse:hidden"
+          >
+            <MoreHorizontal aria-hidden="true" className="size-5" />
+          </button>
+        )}
+      </div>
+      {!unsent && message.reactions?.length > 0 && (
+        <Reactions
+          reactions={message.reactions}
+          currentUserId={currentUserId}
+          isOwn={isOwn}
+          onToggle={onToggleReaction && ((emoji, mine) => onToggleReaction(message, emoji, mine))}
+        />
+      )}
+      {failed && (
+        <div role="alert" className="mt-1 flex items-center gap-3 text-xs">
+          <span className="text-danger">{message.error ?? 'Not sent'}</span>
+          {onRetry && (
+            <button
+              type="button"
+              onClick={onRetry}
+              className="font-semibold text-link hover:underline"
+            >
+              Retry
+            </button>
+          )}
+          {onDiscard && (
+            <button
+              type="button"
+              onClick={onDiscard}
+              className="font-semibold text-muted hover:underline"
+            >
+              Delete
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

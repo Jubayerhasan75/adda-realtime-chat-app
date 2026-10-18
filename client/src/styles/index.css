@@ -1,0 +1,100 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/inter';
+@import './tokens.css';
+
+/* Dark utilities follow the resolved theme on <html data-theme>, not the OS setting. */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+/* Expose the semantic tokens as Tailwind utilities (bg-surface, text-muted, border-border…). */
+@theme inline {
+  --font-sans:
+    'Inter Variable', system-ui, 'Segoe UI', Roboto, 'Noto Sans', 'Noto Sans Bengali', 'Nirmala UI',
+    sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji';
+
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-surface-hover: var(--surface-hover);
+  --color-surface-active: var(--surface-active);
+  --color-border: var(--border);
+  --color-text: var(--text);
+  --color-muted: var(--text-muted);
+  --color-subtle: var(--text-subtle);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-soft: var(--primary-soft);
+  --color-on-primary: var(--on-primary);
+  --color-link: var(--link);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+  --color-bubble-in: var(--bubble-in);
+  --color-on-bubble-in: var(--on-bubble-in);
+  --color-bubble-out: var(--bubble-out);
+  --color-on-bubble-out: var(--on-bubble-out);
+  --color-receipt-seen: var(--receipt-seen);
+  --color-chat-bg: var(--chat-bg);
+  --color-overlay: var(--overlay);
+
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+  --radius-bubble: var(--radius-bubble);
+
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+
+  --ease-standard: var(--ease-standard);
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.45;
+    overflow: hidden; /* each pane scrolls on its own; the page itself never scrolls */
+    overscroll-behavior: none;
+    -webkit-font-smoothing: antialiased;
+    /* No grey/blue flash on taps (Android/iOS); buttons have their own pressed and focus styles. */
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* iOS zooms into inputs below 16px; keep all text inputs at 16px. */
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+
+  /* Passwords are never shown on screen: hide Edge's built-in "reveal password" eye button. */
+  input[type='password']::-ms-reveal,
+  input[type='password']::-ms-clear {
+    display: none;
+  }
+
+  ::selection {
+    background: var(--purple-200);
+    color: var(--gray-950);
+  }
+}
