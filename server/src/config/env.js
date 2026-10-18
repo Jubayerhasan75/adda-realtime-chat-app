@@ -2,6 +2,12 @@ import { z } from 'zod';
 
 const DEFAULT_MAIL_TRANSPORT = { development: 'console', test: 'memory', production: 'smtp' };
 
+const isLocalHost = (hostname) =>
+  hostname === 'localhost' ||
+  hostname.endsWith('.localhost') ||
+  hostname === '127.0.0.1' ||
+  hostname === '[::1]';
+
 const envSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -74,6 +80,17 @@ const envSchema = z
   .refine((env) => env.NODE_ENV !== 'production' || env.APP_ORIGIN.startsWith('https://'), {
     path: ['APP_ORIGIN'],
     message: 'must use https:// in production',
+  })
+  .refine(
+    (env) => env.NODE_ENV !== 'production' || !isLocalHost(new URL(env.APP_ORIGIN).hostname),
+    {
+      path: ['APP_ORIGIN'],
+      message: 'must be the public address of the app in production, not localhost',
+    },
+  )
+  .refine((env) => env.NODE_ENV !== 'production' || !/localhost/i.test(env.MAIL_FROM), {
+    path: ['MAIL_FROM'],
+    message: 'must be a real sender address in production, e.g. Adda <no-reply@yourdomain>',
   })
   .refine((env) => env.NODE_ENV !== 'production' || env.MAIL_TRANSPORT === 'smtp', {
     path: ['MAIL_TRANSPORT'],

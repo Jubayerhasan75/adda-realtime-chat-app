@@ -36,7 +36,9 @@ async function start() {
   server.listen(env.PORT, () => {
     logger.info(
       { port: env.PORT, env: env.NODE_ENV },
-      `Server listening on http://localhost:${env.PORT}`,
+      env.NODE_ENV === 'production'
+        ? `Server listening on port ${env.PORT} for ${env.APP_ORIGIN}`
+        : `Server listening on http://localhost:${env.PORT}`,
     );
   });
 

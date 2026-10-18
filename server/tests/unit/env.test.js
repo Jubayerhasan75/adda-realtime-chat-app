@@ -48,6 +48,31 @@ describe('loadEnv', () => {
     ).toThrow(/https/);
   });
 
+  it('refuses localhost addresses in production', () => {
+    const production = {
+      MONGODB_URI: VALID_URI,
+      NODE_ENV: 'production',
+      MAIL_TRANSPORT: 'smtp',
+      SMTP_HOST: 'smtp.example.com',
+      SMTP_USER: 'user',
+      SMTP_PASS: 'pass',
+      MEDIA_STORAGE: 'none',
+    };
+    expect(() =>
+      loadEnv({ ...production, APP_ORIGIN: 'https://localhost:4000', MAIL_FROM: 'Adda <a@b.com>' }),
+    ).toThrow(/not localhost/);
+    expect(() => loadEnv({ ...production, APP_ORIGIN: 'https://adda.vercel.app' })).toThrow(
+      /MAIL_FROM/,
+    );
+    expect(
+      loadEnv({
+        ...production,
+        APP_ORIGIN: 'https://adda.vercel.app',
+        MAIL_FROM: 'Adda <no-reply@adda.app>',
+      }).APP_ORIGIN,
+    ).toBe('https://adda.vercel.app');
+  });
+
   it('never includes secret values in its error message', () => {
     let error;
     try {
