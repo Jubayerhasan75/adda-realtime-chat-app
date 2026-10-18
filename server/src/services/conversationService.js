@@ -304,6 +304,28 @@ export function createConversationService({ logger, media, push }) {
     },
 
     /**
+     * Messages with photos/videos that I can still see, newest first (for "Media and links").
+     * Their details and keys are inside the encrypted envelopes, opened on the device.
+     */
+    async listMedia(me, conversationId, { before, limit }) {
+      const member = await requireMember(me, conversationId);
+      const filter = {
+        ...visibleTo(member),
+        type: 'media',
+        unsentAt: null,
+        'attachments.0': { $exists: true },
+      };
+      if (before !== undefined) filter.seq = { $gt: member.clearedUpToSeq, $lt: before };
+      const page = await Message.find(filter)
+        .sort({ seq: -1 })
+        .limit(limit + 1);
+      return {
+        messages: await serializeMessages(page.slice(0, limit)),
+        hasMore: page.length > limit,
+      };
+    },
+
+    /**
      * Stores a message exactly once and fans it out (docs/ARCHITECTURE.md §7):
      * the same clientMessageId from the same sender always returns the original message.
      * The content is an end-to-end encrypted envelope the server can't read

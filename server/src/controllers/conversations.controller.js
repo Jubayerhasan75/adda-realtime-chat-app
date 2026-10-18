@@ -23,6 +23,16 @@ export async function listMessages(req, res) {
   });
 }
 
+export async function listMedia(req, res) {
+  res.json({
+    data: await conversations(req).listMedia(
+      me(req),
+      req.params.conversationId,
+      req.validatedQuery,
+    ),
+  });
+}
+
 /** REST fallback for sending while the live connection is down (same idempotency rules). */
 export async function sendMessage(req, res) {
   const { message, duplicate } = await conversations(req).sendMessage(me(req), {

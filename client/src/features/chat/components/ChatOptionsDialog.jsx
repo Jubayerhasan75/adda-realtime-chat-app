@@ -1,6 +1,6 @@
 import { CHAT_ACCENTS } from '@chat/shared';
 import { useQueryClient } from '@tanstack/react-query';
-import { LogOut, MessageSquareX, Search, Trash2 } from 'lucide-react';
+import { Images, LogOut, MessageSquareX, Search, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Alert } from '../../../components/ui/Alert.jsx';
@@ -60,6 +60,7 @@ export function ChatOptionsDialog({
   currentUserId,
   onClose,
   onSearch,
+  onMediaLinks,
 }) {
   const update = useUpdateChatSettings();
   const clear = useClearChat();
@@ -103,16 +104,29 @@ export function ChatOptionsDialog({
           <Alert tone="error">{(update.error ?? clear.error ?? deleteChat.error).message}</Alert>
         )}
 
-        <Button
-          variant="secondary"
-          onClick={() => {
-            close();
-            onSearch();
-          }}
-        >
-          <Search aria-hidden="true" className="size-4" />
-          Search in this chat
-        </Button>
+        <div className="grid grid-cols-2 gap-2">
+          <Button
+            variant="secondary"
+            aria-label="Search in this chat"
+            onClick={() => {
+              close();
+              onSearch();
+            }}
+          >
+            <Search aria-hidden="true" className="size-4" />
+            Search
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              close();
+              onMediaLinks();
+            }}
+          >
+            <Images aria-hidden="true" className="size-4" />
+            Media and links
+          </Button>
+        </div>
 
         <fieldset>
           <legend className="mb-2 text-sm font-semibold text-text">Mute notifications</legend>

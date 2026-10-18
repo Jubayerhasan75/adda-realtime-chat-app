@@ -60,6 +60,12 @@ export const presenceRefreshSchema = z.strictObject({}).optional();
 
 export const MESSAGE_PAGE_SIZE = 30;
 
+/** "Media and links": pages of messages that have photos/videos, newest first. */
+export const mediaHistorySchema = z.strictObject({
+  before: seqField.optional(),
+  limit: z.coerce.number().int().min(1).max(60).default(30),
+});
+
 export const messageHistorySchema = z
   .strictObject({
     before: seqField.optional(),

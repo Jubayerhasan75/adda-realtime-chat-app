@@ -328,3 +328,42 @@ export const groupRequests = {
     apiRequest(`/api/groups/${groupId}/members/${userId}`, { method: 'DELETE' }),
   leave: (groupId) => apiRequest(`/api/groups/${groupId}/leave`, { method: 'POST' }),
 };
+
+/** Photos and videos of a chat, newest first, in pages (opened on this device). */
+export function useChatMedia(conversationId, { enabled = true } = {}) {
+  return useInfiniteQuery({
+    queryKey: ['chat-media', conversationId],
+    queryFn: async ({ pageParam, signal }) => {
+      const page = await apiRequest(
+        `/api/conversations/${conversationId}/media${pageParam ? `?before=${pageParam}` : ''}`,
+        { signal },
+      );
+      return { ...page, messages: await openMessages(page.messages) };
+    },
+    initialPageParam: undefined,
+    getNextPageParam: (lastPage) => (lastPage.hasMore ? lastPage.messages.at(-1)?.seq : undefined),
+    enabled,
+    staleTime: 0,
+  });
+}
+
+/**
+ * The chat's history read separately from the open chat (for finding links), so loading older
+ * pages here never moves what the chat screen is showing.
+ */
+export function useHistoryScan(conversationId, { enabled = true } = {}) {
+  return useInfiniteQuery({
+    queryKey: ['history-scan', conversationId],
+    queryFn: async ({ pageParam, signal }) => {
+      const page = await apiRequest(
+        `/api/conversations/${conversationId}/messages?limit=50${pageParam ? `&before=${pageParam}` : ''}`,
+        { signal },
+      );
+      return { ...page, messages: await openMessages(page.messages) };
+    },
+    initialPageParam: undefined,
+    getNextPageParam: (lastPage) => (lastPage.hasMore ? lastPage.messages[0]?.seq : undefined),
+    enabled,
+    staleTime: 0,
+  });
+}

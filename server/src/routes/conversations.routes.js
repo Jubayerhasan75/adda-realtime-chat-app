@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   conversationSettingsSchema,
+  mediaHistorySchema,
   messageHistorySchema,
   readBodySchema,
   sendMessageBodySchema,
@@ -24,6 +25,7 @@ export function createConversationsRouter(limits) {
     validateQuery(messageHistorySchema),
     conversations.listMessages,
   );
+  router.get('/:conversationId/media', validateQuery(mediaHistorySchema), conversations.listMedia);
   router.post(
     '/:conversationId/messages',
     limits.messages,

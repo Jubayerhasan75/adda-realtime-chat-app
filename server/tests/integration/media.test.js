@@ -246,6 +246,29 @@ describe('sending and viewing', () => {
     }
   });
 
+  it('"Media and links" lists only messages with photos/videos, newest first, in pages', async () => {
+    const first = await sendMedia(nadia, [(await upload(nadia, PNG)).attachmentId]);
+    await as(nadia)
+      .post(`/api/conversations/${chat}/messages`, {
+        clientMessageId: randomUUID(),
+        envelope: fakeEnvelope('just text'),
+      })
+      .expect(201);
+    const second = await sendMedia(arif, [(await upload(arif, PNG)).attachmentId]);
+    const third = await sendMedia(nadia, [(await upload(nadia, PNG)).attachmentId]);
+    await as(nadia).del(`/api/messages/${third.id}?scope=everyone`).expect(200); // unsent
+
+    const page = (await as(arif).get(`/api/conversations/${chat}/media?limit=1`).expect(200)).body
+      .data;
+    expect(page.messages.map((m) => m.id)).toEqual([second.id]);
+    expect(page.hasMore).toBe(true);
+    const older = (
+      await as(arif).get(`/api/conversations/${chat}/media?before=${second.seq}`).expect(200)
+    ).body.data;
+    expect(older).toMatchObject({ hasMore: false, messages: [{ id: first.id }] });
+    await as(sadia).get(`/api/conversations/${chat}/media`).expect(404);
+  });
+
   it('never shows media to someone outside the chat, or to a signed-out visitor', async () => {
     const { attachmentId } = await upload(nadia, PNG);
     await sendMedia(nadia, [attachmentId]);

@@ -123,6 +123,47 @@ test('journey 7: send photos with a caption, view them full screen, unsend remov
   await Promise.all([nadia.context.close(), arif.context.close(), stranger.context.close()]);
 });
 
+test('"Media and links" shows every photo and every shared link', async ({ browser }) => {
+  const nadia = await person(browser, 'nadia_l', 'Nadia');
+  const arif = await person(browser, 'arif_l', 'Arif');
+  const errors = [nadia.page, arif.page].map(trackConsoleErrors);
+  const chat = await befriendAndOpenChat(nadia, arif);
+  await nadia.page.goto(`/chats/${chat}`);
+
+  await nadia.page.getByTestId('attach-input').setInputFiles([png('a.png'), png('b.png')]);
+  const send = nadia.page.getByRole('button', { name: 'Send message' });
+  await expect(send).toBeEnabled();
+  await send.click();
+  await nadia.page.getByLabel('Message', { exact: true }).fill('Notes: https://example.com/notes.');
+  await send.click();
+
+  // The link in the message is tappable and opens safely in a new tab.
+  await arif.page.goto(`/chats/${chat}`);
+  const link = log(arif.page).getByRole('link', { name: 'https://example.com/notes' });
+  await expect(link).toHaveAttribute('href', 'https://example.com/notes');
+  await expect(link).toHaveAttribute('target', '_blank');
+  await expect(link).toHaveAttribute('rel', 'noopener noreferrer nofollow');
+
+  await arif.page.getByRole('button', { name: 'Chat options' }).click();
+  await arif.page.getByRole('button', { name: 'Media and links' }).click();
+  const sheet = arif.page.getByRole('dialog', { name: 'Media and links' });
+  const photos = sheet.getByRole('list', { name: 'Photos and videos' });
+  await expect(photos.getByRole('button', { name: 'Open photo' })).toHaveCount(2);
+  await photos.getByRole('button', { name: 'Open photo' }).first().click();
+  const viewer = arif.page.getByRole('dialog', { name: 'Photo' });
+  await expect(viewer.getByText('1 / 2')).toBeVisible();
+  await viewer.getByRole('button', { name: 'Close' }).click();
+
+  await sheet.getByRole('tab', { name: 'Links' }).click();
+  const links = sheet.getByRole('list', { name: 'Links' });
+  await expect(links.getByText('example.com', { exact: true })).toBeVisible();
+  await links.getByRole('button', { name: 'Show in chat' }).click();
+  await expect(sheet).toBeHidden();
+
+  expect(errors.flat()).toEqual([]);
+  await Promise.all([nadia.context.close(), arif.context.close()]);
+});
+
 test('a file disguised as a photo is refused and can be removed', async ({ browser }) => {
   const nadia = await person(browser, 'nadia_x', 'Nadia');
   const arif = await person(browser, 'arif_x', 'Arif');

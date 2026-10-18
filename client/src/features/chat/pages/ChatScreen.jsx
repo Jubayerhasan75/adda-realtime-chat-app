@@ -22,6 +22,7 @@ import { ChatHeader } from '../components/ChatHeader.jsx';
 import { ChatOptionsDialog } from '../components/ChatOptionsDialog.jsx';
 import { ChatSearchBar } from '../components/ChatSearchBar.jsx';
 import { Composer } from '../components/Composer.jsx';
+import { MediaLinksDialog } from '../components/MediaLinksDialog.jsx';
 import { MessageActionsDialog } from '../components/MessageActionsDialog.jsx';
 import { MessageList } from '../components/MessageList.jsx';
 import { PinnedBar } from '../components/PinnedBar.jsx';
@@ -134,6 +135,7 @@ function ChatView({ conversationId }) {
   const [replyTo, setReplyTo] = useState(null);
   const [editing, setEditing] = useState(null);
   const [viewing, setViewing] = useState(null);
+  const [mediaLinks, setMediaLinks] = useState(false);
   const tray = useAttachmentTray(conversationId);
   const pageActive = usePageActive();
 
@@ -362,6 +364,14 @@ function ChatView({ conversationId }) {
         currentUserId={currentUserId}
         onClose={() => setOptions(null)}
         onSearch={() => setSearching(true)}
+        onMediaLinks={() => setMediaLinks(true)}
+      />
+      <MediaLinksDialog
+        open={mediaLinks}
+        conversation={data}
+        currentUserId={currentUserId}
+        onClose={() => setMediaLinks(false)}
+        onJumpTo={jumpTo}
       />
     </section>
   );

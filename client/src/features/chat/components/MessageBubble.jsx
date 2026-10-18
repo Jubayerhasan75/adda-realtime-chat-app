@@ -1,8 +1,10 @@
+import { Fragment } from 'react';
 import { Ban, Lock, MoreHorizontal, Pin } from 'lucide-react';
 import { useLongPress } from '../../../hooks/useLongPress.js';
 import { cn } from '../../../lib/cn.js';
 import { formatTime } from '../../../lib/format.js';
 import { highlightText } from '../../../lib/highlight.jsx';
+import { splitLinks } from '../../../lib/links.js';
 import { GifImage, MediaGrid } from '../../media/components/MediaGrid.jsx';
 import { messageSummary } from '../lib/messageSummary.js';
 import { Avatar } from '../../../components/ui/Avatar.jsx';
@@ -38,6 +40,28 @@ function Reactions({ reactions, currentUserId, onToggle, isOwn, indented }) {
         </button>
       ))}
     </div>
+  );
+}
+
+/** Message text with tappable web links (opened in a new tab, without telling the site where from). */
+function MessageText({ text, query, isOwn }) {
+  return splitLinks(text).map((part, index) =>
+    part.href ? (
+      <a
+        key={index}
+        href={part.href}
+        target="_blank"
+        rel="noopener noreferrer nofollow"
+        className={cn(
+          'underline underline-offset-2 [overflow-wrap:anywhere]',
+          isOwn ? 'text-on-bubble-out' : 'text-link',
+        )}
+      >
+        {highlightText(part.text, query)}
+      </a>
+    ) : (
+      <Fragment key={index}>{highlightText(part.text, query)}</Fragment>
+    ),
   );
 }
 
@@ -171,7 +195,7 @@ export function MessageBubble({
                     hasMedia && 'max-w-[min(260px,62vw)] px-2 pt-1',
                   )}
                 >
-                  {highlightText(message.text, highlightQuery)}
+                  <MessageText text={message.text} query={highlightQuery} isOwn={isOwn} />
                 </p>
               )}
             </>

@@ -47,6 +47,7 @@ It runs in any modern browser and installs like a native app on **Android, iPhon
 - Typing indicator, **online status** and **last seen**.
 - **Reactions** with any emoji, **reply** to a specific message, **edit**, **unsend** for everyone, **delete for me**.
 - **Pin** important messages; search messages inside a chat (on the device).
+- **Media and links** in each chat's info, like Messenger: every photo and video in a grid, and every shared link with who sent it and a jump back to the message. Links in messages are tappable and open safely in a new tab (only web links; found on the device, since messages are encrypted).
 - Emoji keyboard with recently used emojis, and a **GIF** picker (powered by KLIPY).
 - **Photos and videos:** several at once with a caption, a full-screen viewer and swiping between items. iPhone HEIC photos and HEVC videos are supported, up to 100 MB per video.
 - **Offline-safe sending:** messages written without internet wait in an outbox and send automatically when you're back online, never twice.

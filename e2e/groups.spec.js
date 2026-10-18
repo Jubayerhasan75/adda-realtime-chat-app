@@ -96,6 +96,10 @@ test('groups: create, chat together, add someone who reads the history, remove s
   await expect(log(nadia.page).getByText('See you on Sunday')).toBeVisible();
   await expect(log(rafi.page).getByText('See you on Sunday')).toBeVisible();
 
-  expect(errors.flat()).toEqual([]);
+  // Sadia's app may have been refreshing the chat at the moment she was removed: the server
+  // then correctly answers "not found", which the browser logs. Nothing else may fail.
+  const [nadiaErrors, arifErrors, sadiaErrors, rafiErrors] = errors;
+  expect([...nadiaErrors, ...arifErrors, ...rafiErrors]).toEqual([]);
+  expect(sadiaErrors.filter((error) => !error.includes('status of 404'))).toEqual([]);
   await Promise.all([nadia, arif, sadia, rafi].map(({ context }) => context.close()));
 });
