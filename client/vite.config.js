@@ -38,7 +38,7 @@ export default defineConfig({
         id: '/',
         name: 'Adda',
         short_name: 'Adda',
-        description: 'Private one-to-one chat with your friends.',
+        description: 'Private, end-to-end encrypted chats and groups with your friends.',
         start_url: '/',
         scope: '/',
         display: 'standalone',
