@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import { expect, test } from './fixtures.js';
 import {
   openApp,
@@ -87,12 +88,20 @@ test('journey 7: send photos with a caption, view them full screen, unsend remov
   await send.click();
   await expect(tray).toHaveCount(0);
 
-  // Arif receives both photos and the caption live, loaded through the protected media URL.
+  // Arif receives both photos and the caption live; they are decrypted on his device.
   const received = log(arif.page).locator('[id^="message-"]', { hasText: 'From the trip' });
   await expect(received.getByRole('button', { name: /Photo \d of 2/ })).toHaveCount(2);
   const firstImage = received.locator('img').first();
-  await expect(firstImage).toHaveAttribute('src', /^\/api\/media\/[a-f0-9]{24}\?variant=thumb$/);
+  await expect(firstImage).toHaveAttribute('src', /^blob:/);
   await expect.poll(() => firstImage.evaluate((img) => img.complete && img.naturalWidth)).toBe(8);
+
+  // The server only stores encrypted parts: nothing it serves is a readable image.
+  const stored = (await arif.api.get(`/api/conversations/${chat}/messages`)).messages.at(-1);
+  const partIds = stored.attachments.map((attachment) => attachment.id);
+  expect(stored.attachments.every((attachment) => attachment.kind === 'blob')).toBe(true);
+  const part = await arif.page.request.get(`/api/media/${partIds[0]}`);
+  expect(part.status()).toBe(200);
+  expect((await part.body()).subarray(0, 8).equals(PNG.subarray(0, 8))).toBe(false);
 
   // Full-screen viewer; the browser's back button closes it and stays in the chat.
   await received.getByRole('button', { name: 'Photo 1 of 2. Open' }).click();
@@ -110,8 +119,8 @@ test('journey 7: send photos with a caption, view them full screen, unsend remov
   await expect(viewer).toBeHidden();
   await expect(arif.page).toHaveURL(`/chats/${chat}`);
 
-  // Someone outside the chat can't load the photo, even with its address.
-  const src = await firstImage.getAttribute('src');
+  // Someone outside the chat can't even load the encrypted parts.
+  const src = `/api/media/${partIds[0]}`;
   const stranger = await person(browser, 'sadia_m', 'Sadia');
   expect((await stranger.page.request.get(src, { maxRedirects: 0 })).status()).toBe(404);
 
@@ -165,6 +174,51 @@ test('"Media and links" shows every photo and every shared link', async ({ brows
   await expect(links.getByText('example.com', { exact: true })).toBeVisible();
   await links.getByRole('button', { name: 'Show in chat' }).click();
   await expect(sheet).toBeHidden();
+
+  expect(errors.flat()).toEqual([]);
+  await Promise.all([nadia.context.close(), arif.context.close()]);
+});
+
+test('a big video is sent in encrypted parts and downloads byte for byte', async ({ browser }) => {
+  test.setTimeout(120_000);
+  const nadia = await person(browser, 'nadia_vid', 'Nadia');
+  const arif = await person(browser, 'arif_vid', 'Arif');
+  const errors = [nadia.page, arif.page].map(trackConsoleErrors);
+  const chat = await befriendAndOpenChat(nadia, arif);
+  await nadia.page.goto(`/chats/${chat}`);
+
+  // 12 MB: more than one 9.5 MB part.
+  const video = Buffer.alloc(12 * 1024 * 1024, 7);
+  Buffer.from([0, 0, 0, 0x18]).copy(video, 0);
+  Buffer.from('ftypisom').copy(video, 4);
+  await nadia.page.getByTestId('attach-input').setInputFiles({
+    name: 'trip.mp4',
+    mimeType: 'video/mp4',
+    buffer: video,
+  });
+  const send = nadia.page.getByRole('button', { name: 'Send message' });
+  await expect(send).toBeEnabled({ timeout: 60_000 });
+  await send.click();
+
+  const stored = await expect
+    .poll(async () => (await arif.api.get(`/api/conversations/${chat}/messages`)).messages.at(-1))
+    .toMatchObject({ type: 'media' });
+  void stored;
+  const message = (await arif.api.get(`/api/conversations/${chat}/messages`)).messages.at(-1);
+  expect(message.attachments.length).toBe(2); // two encrypted parts, no preview frame
+  expect(message.attachments.every((attachment) => attachment.kind === 'blob')).toBe(true);
+
+  await arif.page.goto(`/chats/${chat}`);
+  await log(arif.page).getByRole('button', { name: 'Video 1 of 1. Open' }).click();
+  const viewer = arif.page.getByRole('dialog', { name: 'Video' });
+  await expect(viewer.locator('video[src^="blob:"]')).toHaveCount(1, { timeout: 60_000 });
+  const [download] = await Promise.all([
+    arif.page.waitForEvent('download'),
+    viewer.getByRole('button', { name: 'Download video' }).click(),
+  ]);
+  expect(download.suggestedFilename()).toBe('adda-video.mp4');
+  const saved = await readFile(await download.path());
+  expect(saved.equals(video)).toBe(true);
 
   expect(errors.flat()).toEqual([]);
   await Promise.all([nadia.context.close(), arif.context.close()]);
@@ -290,7 +344,7 @@ test('long-press preview shows photos; "Delete chat" removes it from my list onl
   await arif.page.goto('/chats');
   await arif.page.getByRole('link', { name: /Nadia/ }).click({ button: 'right' });
   const preview = arif.page.getByRole('dialog', { name: 'Nadia' });
-  await expect(preview.locator('img[src^="/api/media/"]')).toBeVisible();
+  await expect(preview.locator('img[src^="blob:"]')).toBeVisible();
   await expect(preview.getByText(/Look at this/)).toBeVisible();
 
   await preview.getByRole('button', { name: 'Delete chat' }).click();

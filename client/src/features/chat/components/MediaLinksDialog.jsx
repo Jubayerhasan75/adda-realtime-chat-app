@@ -9,6 +9,8 @@ import { cn } from '../../../lib/cn.js';
 import { formatDuration, formatListTimestamp } from '../../../lib/format.js';
 import { findLinks, linkHost } from '../../../lib/links.js';
 import { MediaViewer } from '../../media/components/MediaViewer.jsx';
+import { isEncrypted } from '../../media/encryptedMedia.js';
+import { useEncryptedThumb } from '../../media/useEncryptedThumb.js';
 import { mediaUrl } from '../../media/upload.js';
 import { flattenHistory, useChatMedia, useHistoryScan } from '../api.js';
 import { nameOf } from '../lib/chatInfo.js';
@@ -20,6 +22,14 @@ const TABS = [
 // Links are found on this device (the server can't read messages): look through this many
 // pages of history automatically, then on request.
 const AUTO_LINK_PAGES = 10;
+
+function EncryptedThumb({ attachment, onFailed }) {
+  const { url, failed } = useEncryptedThumb(attachment);
+  useEffect(() => {
+    if (failed) onFailed();
+  }, [failed, onFailed]);
+  return url ? <img src={url} alt="" className="size-full object-cover" /> : null;
+}
 
 function Tile({ attachment, onOpen }) {
   const [failed, setFailed] = useState(false);
@@ -35,6 +45,8 @@ function Tile({ attachment, onOpen }) {
         <span className="flex size-full items-center justify-center text-muted">
           <ImageOff aria-hidden="true" className="size-5" />
         </span>
+      ) : isEncrypted(attachment) ? (
+        <EncryptedThumb attachment={attachment} onFailed={() => setFailed(true)} />
       ) : (
         <img
           src={mediaUrl(attachment.id, video ? 'poster' : 'thumb')}

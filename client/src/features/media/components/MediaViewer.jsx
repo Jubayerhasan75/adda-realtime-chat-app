@@ -3,11 +3,65 @@ import { useEffect, useRef, useState } from 'react';
 import { useCloseOnBack } from '../../../hooks/useCloseOnBack.js';
 import { localPreview } from '../localPreviews.js';
 import { showToast } from '../../../lib/toast.js';
-import { downloadMedia, mediaUrl } from '../upload.js';
+import { decryptedUrl, downloadAttachments, isEncrypted } from '../encryptedMedia.js';
+import { mediaUrl } from '../upload.js';
 
 const SWIPE_PX = 50;
 
+/** An end-to-end encrypted file: downloaded and decrypted here, with progress for big ones. */
+function EncryptedViewerItem({ attachment }) {
+  const local = localPreview(attachment.id);
+  const [state, setState] = useState({ id: null, url: null, progress: 0, failed: false });
+  const current = state.id === attachment.id ? state : { url: null, progress: 0, failed: false };
+
+  useEffect(() => {
+    if (local) return undefined;
+    let cancelled = false;
+    decryptedUrl(attachment, 'full', {
+      onProgress: (progress) =>
+        !cancelled && setState({ id: attachment.id, url: null, progress, failed: false }),
+    })
+      .then((url) => !cancelled && setState({ id: attachment.id, url, progress: 1, failed: false }))
+      .catch(
+        () => !cancelled && setState({ id: attachment.id, url: null, progress: 0, failed: true }),
+      );
+    return () => {
+      cancelled = true;
+    };
+  }, [attachment, local]);
+
+  const url = local ?? current.url;
+  if (!url) {
+    return (
+      <p role="status" className="text-sm text-white/80">
+        {current.failed
+          ? 'This file can’t be opened'
+          : `Decrypting… ${Math.round(current.progress * 100)}%`}
+      </p>
+    );
+  }
+  return attachment.kind === 'video' ? (
+    <video
+      key={attachment.id}
+      src={url}
+      controls
+      autoPlay
+      playsInline
+      className="max-h-full max-w-full"
+    />
+  ) : (
+    <img
+      key={attachment.id}
+      src={url}
+      alt="Photo"
+      className="max-h-full max-w-full object-contain select-none"
+      draggable={false}
+    />
+  );
+}
+
 function ViewerItem({ attachment }) {
+  if (isEncrypted(attachment)) return <EncryptedViewerItem attachment={attachment} />;
   const local = localPreview(attachment.id);
   if (attachment.kind === 'video') {
     return (
@@ -98,7 +152,7 @@ export function MediaViewer({ items, startIndex = 0, onClose }) {
                 <button
                   type="button"
                   onClick={() => {
-                    downloadMedia([current.id]);
+                    downloadAttachments([current]);
                     showToast(
                       current.kind === 'video' ? 'Downloading video…' : 'Downloading photo…',
                     );

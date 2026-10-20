@@ -174,7 +174,7 @@ export async function uploadFile({
   });
   try {
     await sendBytes(started.upload, file, { onProgress, signal });
-    const hints = await measure(file, kind);
+    const hints = kind === 'blob' ? {} : await measure(file, kind);
     const { attachment } = await apiRequest(`/api/media/uploads/${started.attachmentId}/complete`, {
       method: 'POST',
       body: hints,
@@ -198,14 +198,18 @@ export const mediaUrl = (attachmentId, variant = 'thumb') =>
   `/api/media/${attachmentId}?variant=${variant}`;
 
 /**
- * Saves sent photos/videos to the device in full quality (the server checks access, then the
- * file comes as a download). Several files are started one after another.
+ * Saves sent photos/videos to the device in full quality. Encrypted files are downloaded and
+ * decrypted here first; older unencrypted ones come as a download from the server.
  */
-export function downloadMedia(attachmentIds) {
-  attachmentIds.forEach((id, index) => {
+export function downloadMedia(attachments, saveDecrypted) {
+  attachments.forEach((attachment, index) => {
     setTimeout(() => {
+      if (Array.isArray(attachment.parts)) {
+        saveDecrypted(attachment).catch(() => {});
+        return;
+      }
       const link = document.createElement('a');
-      link.href = mediaUrl(id, 'download');
+      link.href = mediaUrl(attachment.id, 'download');
       link.download = '';
       link.rel = 'noopener';
       document.body.append(link);

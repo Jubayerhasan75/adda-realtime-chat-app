@@ -109,6 +109,14 @@ export async function openMessage(message) {
 
 function mergeAttachments(stored = [], decrypted = []) {
   if (!decrypted?.length) return stored;
+  // End-to-end encrypted files: every detail comes from the message; the server only lists
+  // their encrypted parts. A file whose parts the server doesn't list isn't shown.
+  if (decrypted.some((item) => Array.isArray(item.parts))) {
+    const storedIds = new Set(stored.map((item) => item.id));
+    return decrypted.filter(
+      (item) => Array.isArray(item.parts) && item.parts.every((id) => storedIds.has(id)),
+    );
+  }
   const byId = new Map(decrypted.map((item) => [item.id, item]));
   return stored.map((item) => ({ ...item, ...byId.get(item.id) }));
 }

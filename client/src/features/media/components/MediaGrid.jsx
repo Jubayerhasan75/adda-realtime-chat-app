@@ -1,7 +1,9 @@
 import { ImageOff, Play } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { cn } from '../../../lib/cn.js';
 import { formatDuration } from '../../../lib/format.js';
+import { isEncrypted } from '../encryptedMedia.js';
+import { useEncryptedThumb } from '../useEncryptedThumb.js';
 import { localPreview } from '../localPreviews.js';
 import { mediaUrl } from '../upload.js';
 
@@ -41,7 +43,63 @@ function VideoThumb({ attachment, onFailed }) {
   );
 }
 
+function EncryptedImage({ attachment, onFailed }) {
+  const { url, failed, missing } = useEncryptedThumb(attachment);
+  useEffect(() => {
+    if (failed) onFailed();
+  }, [failed, onFailed]);
+  if (missing) return <span className="block size-full bg-black/40" />;
+  if (!url) return null;
+  return <img src={url} alt="" decoding="async" className="size-full object-cover" />;
+}
+
 function MediaTile({ attachment, onOpen, more = 0, label }) {
+  if (isEncrypted(attachment)) {
+    return <EncryptedTile attachment={attachment} onOpen={onOpen} more={more} label={label} />;
+  }
+  return <PlainTile attachment={attachment} onOpen={onOpen} more={more} label={label} />;
+}
+
+function EncryptedTile({ attachment, onOpen, more, label }) {
+  const [failed, setFailed] = useState(false);
+  const duration = attachment.kind === 'video' ? formatDuration(attachment.durationMs) : null;
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-label={label}
+      className="relative block size-full overflow-hidden bg-black/10"
+    >
+      {failed ? (
+        <span className="flex size-full flex-col items-center justify-center gap-1 text-xs opacity-80">
+          <ImageOff aria-hidden="true" className="size-5" />
+          Not available
+        </span>
+      ) : (
+        <EncryptedImage attachment={attachment} onFailed={() => setFailed(true)} />
+      )}
+      {attachment.kind === 'video' && !failed && (
+        <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <span className="flex size-11 items-center justify-center rounded-full bg-black/55">
+            <Play aria-hidden="true" className="ml-0.5 size-5 fill-white text-white" />
+          </span>
+          {duration && (
+            <span className="absolute bottom-1.5 left-1.5 rounded bg-black/60 px-1.5 py-0.5 text-[11px] font-medium text-white tabular-nums">
+              {duration}
+            </span>
+          )}
+        </span>
+      )}
+      {more > 0 && (
+        <span className="absolute inset-0 flex items-center justify-center bg-black/55 text-2xl font-semibold text-white">
+          +{more}
+        </span>
+      )}
+    </button>
+  );
+}
+
+function PlainTile({ attachment, onOpen, more = 0, label }) {
   const [failed, setFailed] = useState(false);
   const [loaded, setLoaded] = useState(Boolean(localPreview(attachment.id)));
   const duration = attachment.kind === 'video' ? formatDuration(attachment.durationMs) : null;

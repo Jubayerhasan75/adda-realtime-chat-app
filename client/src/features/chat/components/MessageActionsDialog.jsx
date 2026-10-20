@@ -7,7 +7,7 @@ import { showToast } from '../../../lib/toast.js';
 import { cn } from '../../../lib/cn.js';
 import { useDeleteForMe, usePinToggle, useReact, useUnreact, useUnsendMessage } from '../api.js';
 import { QUICK_REACTIONS } from '../emojiData.js';
-import { downloadMedia } from '../../media/upload.js';
+import { downloadAttachments } from '../../media/encryptedMedia.js';
 import { EmojiPicker } from './EmojiPicker.jsx';
 import { messageSummary } from '../lib/messageSummary.js';
 
@@ -142,7 +142,7 @@ export function MessageActionsDialog({
                       : 'Download photo'
                 }
                 onClick={() => {
-                  downloadMedia(message.attachments.map((attachment) => attachment.id));
+                  downloadAttachments(message.attachments);
                   showToast('Downloading…');
                   close();
                 }}

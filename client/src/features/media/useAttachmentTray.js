@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { showToast } from '../../lib/toast.js';
 import { rememberPreview } from './localPreviews.js';
-import { MAX_FILES, checkFile, discardUpload, uploadFile } from './upload.js';
+import { partIdsOf, sendEncryptedFile } from './encryptedMedia.js';
+import { MAX_FILES, checkFile, discardUpload } from './upload.js';
 
 /**
  * @typedef {{ localId: string, file: File, kind: 'image' | 'video', mimeType: string,
@@ -32,11 +33,10 @@ export function useAttachmentTray(conversationId) {
     (item) => {
       const controller = new AbortController();
       controllers.current.set(item.localId, controller);
-      uploadFile({
+      sendEncryptedFile({
         file: item.file,
         kind: item.kind,
         mimeType: item.mimeType,
-        purpose: 'message',
         conversationId,
         signal: controller.signal,
         onProgress: (progress) => patch(item.localId, { progress }),
@@ -86,7 +86,7 @@ export function useAttachmentTray(conversationId) {
     const item = itemsRef.current.find((i) => i.localId === localId);
     if (!item) return;
     controllers.current.get(localId)?.abort();
-    if (item.attachment) discardUpload(item.attachment.id);
+    if (item.attachment) partIdsOf([item.attachment]).forEach(discardUpload);
     URL.revokeObjectURL(item.previewUrl);
     setItems((list) => list.filter((i) => i.localId !== localId));
   }, []);
@@ -115,7 +115,7 @@ export function useAttachmentTray(conversationId) {
     () => () => {
       controllers.current.forEach((controller) => controller.abort());
       for (const item of itemsRef.current) {
-        if (item.attachment) discardUpload(item.attachment.id);
+        if (item.attachment) partIdsOf([item.attachment]).forEach(discardUpload);
         URL.revokeObjectURL(item.previewUrl);
       }
     },

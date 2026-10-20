@@ -3,6 +3,7 @@ import { useSyncExternalStore } from 'react';
 import { apiRequest } from '../../lib/http.js';
 import { forgetGroupKeys } from '../e2ee/groupKeys.js';
 import { openMessage, sealContent } from '../e2ee/messages.js';
+import { partIdsOf } from '../media/encryptedMedia.js';
 import { getConnectedSocket } from '../realtime/socketStore.js';
 import { outboxStorage } from './outboxStorage.js';
 
@@ -66,7 +67,7 @@ function contentOf({ clientMessageId, envelope, attachments, replyToId }) {
   return {
     clientMessageId,
     envelope,
-    ...(attachments?.length ? { attachmentIds: attachments.map((a) => a.id) } : {}),
+    ...(attachments?.length ? { attachmentIds: partIdsOf(attachments) } : {}),
     ...(replyToId ? { replyToId } : {}),
   };
 }
