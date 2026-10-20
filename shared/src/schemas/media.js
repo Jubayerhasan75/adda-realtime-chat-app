@@ -9,18 +9,22 @@ import { objectIdField } from './friends.js';
 export const MEDIA_MIME_TYPES = Object.freeze({
   image: ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic', 'image/heif'],
   video: ['video/mp4', 'video/quicktime', 'video/webm'],
+  // An encrypted part of a message file: the server can't tell what it is.
+  blob: ['application/octet-stream'],
 });
 
 export const MEDIA_MAX_BYTES = Object.freeze({
   image: LIMITS.IMAGE_MAX_BYTES,
   video: LIMITS.VIDEO_MAX_BYTES,
+  blob: LIMITS.BLOB_MAX_BYTES,
 });
 
-/** "image" | "video" for an allowed MIME type, otherwise null. */
+/** "image" | "video" | "blob" for an allowed MIME type, otherwise null. */
 export function mediaKindOf(mimeType) {
   const type = String(mimeType ?? '').toLowerCase();
   if (MEDIA_MIME_TYPES.image.includes(type)) return 'image';
   if (MEDIA_MIME_TYPES.video.includes(type)) return 'video';
+  if (MEDIA_MIME_TYPES.blob.includes(type)) return 'blob';
   return null;
 }
 

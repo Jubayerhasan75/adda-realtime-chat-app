@@ -15,7 +15,7 @@ const attachmentSchema = new Schema(
     purpose: { type: String, enum: UPLOAD_PURPOSES, required: true },
     conversationId: { type: Schema.Types.ObjectId, ref: 'Conversation', default: null },
     messageId: { type: Schema.Types.ObjectId, ref: 'Message', default: null },
-    kind: { type: String, enum: ['image', 'video'], required: true },
+    kind: { type: String, enum: ['image', 'video', 'blob'], required: true },
     mimeType: { type: String, required: true },
     size: { type: Number, required: true },
     width: { type: Number, default: null },

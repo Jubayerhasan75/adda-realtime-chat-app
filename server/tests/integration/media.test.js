@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { mkdtemp, readdir, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -369,6 +369,57 @@ describe('sending and viewing', () => {
       id: message.id,
       envelope: fakeEnvelope('media'),
     });
+  });
+});
+
+describe('end-to-end encrypted parts', () => {
+  it('stores opaque encrypted bytes, checks only their size, and serves them to members', async () => {
+    const sealed = randomBytes(5000); // looks like noise, like real encrypted data
+    const { attachmentId, completed } = await upload(nadia, sealed, {
+      mimeType: 'application/octet-stream',
+    });
+    expect(completed.status).toBe(200);
+    expect(completed.body.data.attachment).toMatchObject({
+      kind: 'blob',
+      size: 5000,
+      status: 'ready',
+    });
+
+    const message = await sendMedia(nadia, [attachmentId]);
+    expect(message.attachments).toEqual([
+      expect.objectContaining({ id: attachmentId, kind: 'blob', size: 5000 }),
+    ]);
+    const res = await as(arif).get(`/api/media/${attachmentId}`).expect(302);
+    const file = await arif.agent.get(res.headers.location).buffer(true).expect(200);
+    expect(Buffer.compare(file.body, sealed)).toBe(0);
+    await as(sadia).get(`/api/media/${attachmentId}`).expect(404);
+  });
+
+  it('refuses a part whose size differs from what was announced, and parts as avatars', async () => {
+    const started = await as(nadia)
+      .post('/api/media/uploads', {
+        purpose: 'message',
+        conversationId: chat,
+        mimeType: 'application/octet-stream',
+        size: 100,
+      })
+      .expect(201);
+    const { attachmentId, upload: target } = started.body.data;
+    await nadia.agent
+      .post(target.url)
+      .set('X-CSRF-Token', nadia.csrfToken)
+      .field('token', target.fields.token)
+      .attach('file', randomBytes(80), 'part')
+      .expect(201);
+    await as(nadia).post(`/api/media/uploads/${attachmentId}/complete`, {}).expect(422);
+
+    await as(nadia)
+      .post('/api/media/uploads', {
+        purpose: 'avatar',
+        mimeType: 'application/octet-stream',
+        size: 100,
+      })
+      .expect(415);
   });
 });
 

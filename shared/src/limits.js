@@ -18,7 +18,10 @@ export const LIMITS = Object.freeze({
   MAX_ATTACHMENTS: 10,
   IMAGE_MAX_BYTES: 10 * 1024 * 1024,
   VIDEO_MAX_BYTES: 100 * 1024 * 1024,
-  UPLOADS_PER_HOUR: 120,
+  UPLOADS_PER_HOUR: 600,
+  // End-to-end encrypted media (docs/E2EE.md §4): files are uploaded as encrypted parts.
+  BLOB_MAX_BYTES: 9.5 * 1024 * 1024,
+  MESSAGE_MAX_BLOBS: 130,
   // Groups (docs/GROUPS.md).
   GROUP_MAX_MEMBERS: 50,
   GROUP_NAME_MAX: 50,

@@ -24,7 +24,13 @@ export function buildVercelConfig(apiUrl) {
   const csp = cspHeaderValue(
     cspDirectives({
       mediaHosts: [CLOUDINARY_MEDIA_ORIGIN, KLIPY_MEDIA_ORIGIN],
-      connectHosts: [api.origin, socketOrigin, CLOUDINARY_UPLOAD_ORIGIN, KLIPY_API_ORIGIN],
+      connectHosts: [
+        api.origin,
+        socketOrigin,
+        CLOUDINARY_UPLOAD_ORIGIN,
+        CLOUDINARY_MEDIA_ORIGIN,
+        KLIPY_API_ORIGIN,
+      ],
       isHttps: true,
     }),
   );

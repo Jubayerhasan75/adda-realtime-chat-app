@@ -73,6 +73,9 @@ function downloadUrl(key, kind, mimeType) {
   });
 }
 
+// Encrypted parts are stored as "raw" files (no extension: Cloudinary refuses .bin).
+const resourceType = (kind) => (kind === 'blob' ? 'raw' : kind);
+
 const statusOf = (err) => err?.http_code ?? err?.error?.http_code;
 
 /**
@@ -117,12 +120,12 @@ export function createCloudinaryStorage({ url }) {
         timestamp: Math.floor(Date.now() / 1000),
         public_id: key,
         type: 'authenticated',
-        allowed_formats: ALLOWED_FORMATS[kind],
+        ...(ALLOWED_FORMATS[kind] ? { allowed_formats: ALLOWED_FORMATS[kind] } : {}),
         ...(kind === 'video' ? { eager: eagerVideo, eager_async: 'true' } : {}),
       };
       const signature = cloudinary.utils.api_sign_request(params, apiSecret);
       return {
-        url: `https://api.cloudinary.com/v1_1/${cloudName}/${kind}/upload`,
+        url: `https://api.cloudinary.com/v1_1/${cloudName}/${resourceType(kind)}/upload`,
         fields: { ...params, api_key: apiKey, signature },
         expiresAt: new Date(Date.now() + UPLOAD_TTL_MS),
       };
@@ -132,7 +135,7 @@ export function createCloudinaryStorage({ url }) {
     async inspect({ key, kind }) {
       try {
         const resource = await cloudinary.api.resource(key, {
-          resource_type: kind,
+          resource_type: resourceType(kind),
           type: 'authenticated',
         });
         return {
@@ -151,7 +154,7 @@ export function createCloudinaryStorage({ url }) {
     async remove({ key, kind }) {
       try {
         await cloudinary.uploader.destroy(key, {
-          resource_type: kind,
+          resource_type: resourceType(kind),
           type: 'authenticated',
           invalidate: true,
         });
@@ -161,6 +164,15 @@ export function createCloudinaryStorage({ url }) {
     },
 
     deliveryUrl({ key, kind, variant, mimeType }) {
+      if (kind === 'blob') {
+        return cloudinary.url(key, {
+          resource_type: 'raw',
+          type: 'authenticated',
+          sign_url: true,
+          secure: true,
+          urlAnalytics: false,
+        });
+      }
       if (variant === 'download') return downloadUrl(key, kind, mimeType);
       const options =
         kind === 'video'

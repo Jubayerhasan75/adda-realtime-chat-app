@@ -15,7 +15,7 @@ import { toPrivateUser } from './userService.js';
 const HOUR_MS = 60 * 60 * 1000;
 // Uploaded but never sent: removed after a day.
 const UNUSED_UPLOAD_TTL_MS = 24 * HOUR_MS;
-const MAX_UNUSED_UPLOADS = 30;
+const MAX_UNUSED_UPLOADS = 150;
 const CLEANUP_BATCH = 100;
 
 const unavailable = () =>
@@ -93,6 +93,9 @@ export function createMediaService({ storage, logger }) {
           'Only photos (JPEG, PNG, WebP, GIF, HEIC) and videos (MP4, MOV, WebM) can be sent',
         );
       }
+      if (kind === 'blob' && purpose !== 'message') {
+        throw new AppError(415, ERROR_CODES.UNSUPPORTED_MEDIA_TYPE, 'Unsupported upload');
+      }
       if (purpose === 'avatar' && kind !== 'image') {
         throw new AppError(
           415,
@@ -101,10 +104,11 @@ export function createMediaService({ storage, logger }) {
         );
       }
       if (size > MEDIA_MAX_BYTES[kind]) {
+        const what = { image: 'Photos', video: 'Videos', blob: 'File parts' }[kind];
         throw new AppError(
           413,
           ERROR_CODES.TOO_LARGE,
-          `${kind === 'image' ? 'Photos' : 'Videos'} can be at most ${describeLimit(MEDIA_MAX_BYTES[kind])}`,
+          `${what} can be at most ${describeLimit(MEDIA_MAX_BYTES[kind])}`,
         );
       }
       if (purpose === 'message') {
@@ -172,6 +176,19 @@ export function createMediaService({ storage, logger }) {
         await purgeDeleting({ _id: attachment._id });
         throw new AppError(422, ERROR_CODES.INVALID_MEDIA, message);
       };
+      if (attachment.kind === 'blob') {
+        // Encrypted: only its size can be checked.
+        if (stored.bytes !== attachment.size || stored.bytes > MEDIA_MAX_BYTES.blob) {
+          await reject('The upload is incomplete');
+        }
+        return toUploadView(
+          (await Attachment.findOneAndUpdate(
+            { _id: attachment._id, status: 'pending' },
+            { $set: { status: 'ready' } },
+            { returnDocument: 'after' },
+          )) ?? (await loadOwnUpload(me, attachmentId)),
+        );
+      }
       if (formatKind(stored.format) !== attachment.kind) {
         await reject('This file isn’t a supported photo or video');
       }
@@ -284,7 +301,12 @@ export function createMediaService({ storage, logger }) {
         key: attachment.storage.key,
         kind: attachment.kind,
         mimeType: attachment.mimeType,
-        variant: attachment.purpose === 'avatar' ? 'avatar' : variant,
+        variant:
+          attachment.purpose === 'avatar'
+            ? 'avatar'
+            : attachment.kind === 'blob'
+              ? 'full'
+              : variant,
       });
       if (!url) throw mediaNotFound();
       return url;

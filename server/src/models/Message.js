@@ -16,7 +16,7 @@ const reactionSchema = new Schema(
 const attachmentRefSchema = new Schema(
   {
     attachmentId: { type: Schema.Types.ObjectId, ref: 'Attachment', required: true },
-    kind: { type: String, enum: ['image', 'video'], required: true },
+    kind: { type: String, enum: ['image', 'video', 'blob'], required: true },
     mimeType: { type: String, required: true },
     width: { type: Number, default: null },
     height: { type: Number, default: null },

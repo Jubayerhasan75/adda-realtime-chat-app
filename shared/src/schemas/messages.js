@@ -34,7 +34,7 @@ const messageContentFields = {
   attachmentIds: z
     .array(objectIdField)
     .min(1)
-    .max(LIMITS.MAX_ATTACHMENTS, `You can send up to ${LIMITS.MAX_ATTACHMENTS} files at once`)
+    .max(LIMITS.MESSAGE_MAX_BLOBS, 'Too many files in one message')
     .refine((ids) => new Set(ids).size === ids.length, 'Duplicate attachment')
     .optional(),
   replyToId: objectIdField.optional(),

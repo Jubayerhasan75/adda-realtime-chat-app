@@ -100,7 +100,12 @@ export function createApp({
     ? { api: [KLIPY_API_ORIGIN], media: [KLIPY_MEDIA_ORIGIN] }
     : { api: [], media: [] };
   const mediaHosts = [...(storage?.origins.media ?? []), ...gifs.media];
-  const connectHosts = [...(storage?.origins.upload ?? []), ...gifs.api];
+  // Encrypted media is fetched (and decrypted) by the page itself.
+  const connectHosts = [
+    ...(storage?.origins.upload ?? []),
+    ...(storage?.origins.media ?? []),
+    ...gifs.api,
+  ];
 
   app.disable('x-powered-by');
   app.set('trust proxy', env.TRUST_PROXY_HOPS);
