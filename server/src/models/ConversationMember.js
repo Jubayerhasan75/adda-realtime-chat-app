@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { CHAT_ACCENTS } from '@chat/shared';
+import { isChatAccent } from '@chat/shared';
 
 const { Schema } = mongoose;
 
@@ -22,8 +22,12 @@ const memberSchema = new Schema(
     clearedUpToSeq: { type: Number, default: 0 },
     // No notifications until this time (a far-future date = until unmuted). Used in Phase 9.
     mutedUntil: { type: Date, default: null },
-    // This user's color for this chat only (preset name, see CHAT_ACCENTS); null = default.
-    accent: { type: String, enum: CHAT_ACCENTS, default: null },
+    // This user's color for this chat only (preset name or #rrggbb); null = default.
+    accent: {
+      type: String,
+      default: null,
+      validate: { validator: (value) => value === null || isChatAccent(value) },
+    },
   },
   { timestamps: true },
 );

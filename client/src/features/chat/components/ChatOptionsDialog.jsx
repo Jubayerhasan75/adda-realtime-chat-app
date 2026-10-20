@@ -1,4 +1,3 @@
-import { CHAT_ACCENTS } from '@chat/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { Images, LogOut, MessageSquareX, Search, Trash2 } from 'lucide-react';
 import { useState } from 'react';
@@ -16,16 +15,8 @@ import {
   useGroupAction,
   useUpdateChatSettings,
 } from '../api.js';
+import { ChatAppearance } from './ChatAppearance.jsx';
 import { GroupInfo } from './GroupInfo.jsx';
-
-const ACCENT_LABELS = {
-  teakhelet: 'Purple',
-  ocean: 'Ocean',
-  forest: 'Forest',
-  sunset: 'Sunset',
-  rose: 'Rose',
-  graphite: 'Graphite',
-};
 
 const HOUR = 3600_000;
 const MUTE_OPTIONS = [
@@ -166,39 +157,11 @@ export function ChatOptionsDialog({
           </p>
         </fieldset>
 
-        <fieldset>
-          <legend className="mb-2 text-sm font-semibold text-text">Chat color</legend>
-          <div className="flex flex-wrap gap-3">
-            {CHAT_ACCENTS.map((accent) => {
-              const selected = (myState.accent ?? 'teakhelet') === accent;
-              return (
-                <label key={accent} className="flex flex-col items-center gap-1 text-xs text-muted">
-                  <input
-                    type="radio"
-                    name="accent"
-                    className="peer sr-only"
-                    checked={selected}
-                    onChange={() =>
-                      update.mutate({
-                        conversationId: id,
-                        accent: accent === 'teakhelet' ? null : accent,
-                      })
-                    }
-                  />
-                  <span
-                    style={{ backgroundColor: `var(--accent-${accent})` }}
-                    className={cn(
-                      'size-10 cursor-pointer rounded-full peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-(--focus-ring)',
-                      selected && 'ring-2 ring-text ring-offset-2 ring-offset-surface',
-                    )}
-                  />
-                  {ACCENT_LABELS[accent]}
-                </label>
-              );
-            })}
-          </div>
-          <p className="mt-2 text-xs text-muted">Only you see this color.</p>
-        </fieldset>
+        <ChatAppearance
+          conversation={conversation}
+          currentUserId={currentUserId}
+          onChange={(changes) => update.mutate(changes)}
+        />
 
         <Button
           variant={confirmClear ? 'danger' : 'ghost'}

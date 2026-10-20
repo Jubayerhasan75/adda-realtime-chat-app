@@ -258,6 +258,14 @@ describe('clear chat, mute and colors', () => {
     expect(res.body.data.myState).toMatchObject({ mutedUntil: until, accent: 'ocean' });
     expect((await summary(arif)).myState).toMatchObject({ mutedUntil: null, accent: null });
     await as(nadia).patch(`/api/conversations/${chat}/settings`, { accent: 'neon' }).expect(400);
+    // Any color as #rrggbb, but never other CSS.
+    const custom = await as(nadia)
+      .patch(`/api/conversations/${chat}/settings`, { accent: '#ff5a1f' })
+      .expect(200);
+    expect(custom.body.data.myState.accent).toBe('#ff5a1f');
+    for (const bad of ['red', '#fff', 'url(x)', '#ff5a1f;color:red']) {
+      await as(nadia).patch(`/api/conversations/${chat}/settings`, { accent: bad }).expect(400);
+    }
     await as(sadia).patch(`/api/conversations/${chat}/settings`, { accent: 'ocean' }).expect(404);
   });
 });

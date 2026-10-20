@@ -4,10 +4,27 @@ import { Spinner } from '../../../components/ui/Spinner.jsx';
 import { formatDayLabel } from '../../../lib/format.js';
 import { nameOf, peopleOf, systemText } from '../lib/chatInfo.js';
 import { groupMessages } from '../lib/groupMessages.js';
+import { DIM_LEVELS, WALLPAPER_PRESETS } from '../wallpaper.js';
 import { MessageBubble } from './MessageBubble.jsx';
 
 const NEAR_BOTTOM_PX = 120;
 const LOAD_OLDER_PX = 200;
+
+/** This chat's background (a photo or preset, kept on this device), dimmed for readability. */
+function Wallpaper({ wallpaper }) {
+  const preset = WALLPAPER_PRESETS.find((p) => p.id === wallpaper.presetId);
+  const image = wallpaper.url ? `url("${wallpaper.url}")` : preset?.css;
+  if (!image) return null;
+  return (
+    <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
+      <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: image }} />
+      <div
+        className="absolute inset-0 bg-chat-bg"
+        style={{ opacity: DIM_LEVELS[wallpaper.dim] ?? DIM_LEVELS.medium }}
+      />
+    </div>
+  );
+}
 
 /**
  * Scrollable message history (docs/REQUIREMENTS.md §16 "Message list behavior"):
@@ -31,6 +48,7 @@ export function MessageList({
   onDiscard,
   peerName,
   conversation,
+  wallpaper = null,
   highlightQuery,
   onOpenMenu,
   onToggleReaction,
@@ -64,11 +82,33 @@ export function MessageList({
     if (!atBottom && !lastIsMine && seenLastId) setNewWhileAway((count) => count + 1);
   }
 
+  // Messages added at the end after the first screen slide in (sent or received). Worked out
+  // while rendering, from the previous list ("adjust state when props change").
+  const [previousItems, setPreviousItems] = useState(items);
+  const [appearingKeys, setAppearingKeys] = useState(() => new Set());
+  if (previousItems !== items) {
+    const oldKeys = new Set(previousItems.map((item) => item.key));
+    const lastOld = items.findLastIndex((item) => oldKeys.has(item.key));
+    setPreviousItems(items);
+    setAppearingKeys(
+      new Set(
+        previousItems.length
+          ? items
+              .slice(lastOld + 1)
+              .filter((item) => item.type === 'message')
+              .map((item) => item.key)
+          : [],
+      ),
+    );
+  }
+  const smoothUntil = useRef(0);
+
   // Keep the newest message in view when the visible area or the content changes size.
   useEffect(() => {
     const container = scrollRef.current;
     if (!container || typeof ResizeObserver === 'undefined') return undefined;
     const observer = new ResizeObserver(() => {
+      if (Date.now() < smoothUntil.current) return; // a smooth scroll is under way
       if (isNearBottom.current) container.scrollTop = container.scrollHeight;
     });
     observer.observe(container);
@@ -102,7 +142,9 @@ export function MessageList({
       return;
     }
     if (lastIsMine || isNearBottom.current) {
-      container.scrollTop = container.scrollHeight;
+      const smooth = !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+      if (smooth) smoothUntil.current = Date.now() + 450;
+      container.scrollTo({ top: container.scrollHeight, behavior: smooth ? 'smooth' : 'auto' });
     }
   }, [lastMessageId, lastIsMine]);
 
@@ -122,13 +164,14 @@ export function MessageList({
   };
 
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col">
+    <div className="relative flex min-h-0 flex-1 flex-col bg-chat-bg">
+      {wallpaper && <Wallpaper wallpaper={wallpaper} />}
       <div
         ref={scrollRef}
         onScroll={handleScroll}
         role="log"
         aria-label="Messages"
-        className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain bg-chat-bg pt-2 pb-3"
+        className="relative min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain pt-2 pb-3"
       >
         <div ref={contentRef}>
           {hasOlder && (
@@ -191,6 +234,7 @@ export function MessageList({
             return (
               <MessageBubble
                 key={item.key}
+                appearing={appearingKeys.has(item.key)}
                 message={message}
                 isOwn={item.isOwn}
                 isFirstInGroup={item.isFirstInGroup}

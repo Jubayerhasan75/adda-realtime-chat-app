@@ -115,6 +115,7 @@ export function MessageBubble({
   onJumpTo,
   onOpenMedia,
   onReply,
+  appearing = false,
 }) {
   const failed = message.status === 'failed';
   const unsent = Boolean(message.unsentAt);
@@ -138,6 +139,7 @@ export function MessageBubble({
       id={`message-${message.id}`}
       className={cn(
         'group flex flex-col px-3 sm:px-4',
+        appearing && (isOwn ? 'animate-message-in-own' : 'animate-message-in'),
         isOwn ? 'items-end' : 'items-start',
         isFirstInGroup ? 'mt-2' : 'mt-0.5',
       )}

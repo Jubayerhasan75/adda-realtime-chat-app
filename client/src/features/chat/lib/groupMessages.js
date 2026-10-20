@@ -51,7 +51,8 @@ export function groupMessages(messages, { currentUserId, firstUnreadId = null })
 
     items.push({
       type: 'message',
-      key: message.id,
+      // The same key while sending and once stored, so the bubble isn't replaced.
+      key: message.clientMessageId ?? message.id,
       message,
       isOwn: message.senderId === currentUserId,
       isFirstInGroup,

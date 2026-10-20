@@ -31,6 +31,8 @@ import { deliveryStatus } from '../lib/deliveryStatus.js';
 import { messageSummary } from '../lib/messageSummary.js';
 import { discardMessage, enqueueMessage, retryMessage, useOutbox } from '../outbox.js';
 import { chatTitle, nameOf } from '../lib/chatInfo.js';
+import { accentStyle } from '../lib/chatTheme.js';
+import { useWallpaper } from '../wallpaper.js';
 import { createTypingNotifier, useTypingUsers } from '../typingStore.js';
 
 const READ_DEBOUNCE_MS = 500;
@@ -138,6 +140,7 @@ function ChatView({ conversationId }) {
   const [mediaLinks, setMediaLinks] = useState(false);
   const tray = useAttachmentTray(conversationId);
   const pageActive = usePageActive();
+  const wallpaper = useWallpaper(currentUserId, conversationId);
 
   const conversation = useConversation(conversationId);
   const history = useMessageHistory(conversationId);
@@ -251,11 +254,7 @@ function ChatView({ conversationId }) {
       aria-label={isGroup ? peerName : `Chat with ${peerName}`}
       className="flex min-h-0 min-w-0 flex-1 flex-col"
       // A chat's own color only changes this chat (and only for me).
-      style={
-        data.myState.accent
-          ? { '--chat-accent': `var(--accent-${data.myState.accent})` }
-          : undefined
-      }
+      style={accentStyle(data.myState.accent)}
     >
       <ChatHeader
         conversation={data}
@@ -290,6 +289,7 @@ function ChatView({ conversationId }) {
         currentUserId={currentUserId}
         peerName={peerName}
         conversation={data}
+        wallpaper={wallpaper}
         firstUnreadId={firstUnreadId}
         hasOlder={hasNextPage}
         loadingOlder={isFetchingNextPage}

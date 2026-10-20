@@ -15,14 +15,20 @@ export const reactionSchema = z.strictObject({
   emoji: z.string().refine(isSingleEmoji, 'Use a single emoji'),
 });
 
-/** Chat colors: preset accents only (never arbitrary CSS). `null` = app default. */
+/** Chat colors: a preset, or any color as #rrggbb (never arbitrary CSS). `null` = default. */
 export const CHAT_ACCENTS = ['teakhelet', 'ocean', 'forest', 'sunset', 'rose', 'graphite'];
+export const HEX_COLOR = /^#[0-9a-f]{6}$/i;
+export const isChatAccent = (value) => CHAT_ACCENTS.includes(value) || HEX_COLOR.test(value);
 
 export const conversationSettingsSchema = z
   .strictObject({
     // ISO date until which notifications are muted; a far-future date means "until unmuted".
     mutedUntil: z.iso.datetime().nullable().optional(),
-    accent: z.enum(CHAT_ACCENTS).nullable().optional(),
+    accent: z
+      .string()
+      .refine(isChatAccent, 'Choose a preset or a #rrggbb color')
+      .nullable()
+      .optional(),
   })
   .refine((data) => Object.keys(data).length > 0, 'Nothing to update');
 
