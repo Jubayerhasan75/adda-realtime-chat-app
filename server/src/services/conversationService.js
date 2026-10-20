@@ -17,7 +17,7 @@ import {
   requireMember,
   visibleTo,
 } from './conversationAccess.js';
-import { serializeMessage, serializeMessages } from './messageView.js';
+import { serializeMessage, serializeMessages, toMessage } from './messageView.js';
 import { emitToUser } from './realtime.js';
 import { blockedIdsFor, canMessage } from './relationshipService.js';
 import { toPublicUser } from './userService.js';
@@ -334,7 +334,12 @@ export function createConversationService({ logger, media, push }) {
      */
     async sendMessage(me, input) {
       const { conversationId, clientMessageId, envelope, replyToId, attachmentIds } = input;
-      const existing = await Message.findOne({ senderId: me._id, clientMessageId });
+      // Independent lookups run together: each database round trip delays the message.
+      const [existing, member, memberIds] = await Promise.all([
+        Message.findOne({ senderId: me._id, clientMessageId }),
+        requireMember(me, conversationId),
+        memberIdsOf(conversationId),
+      ]);
       if (existing) {
         if (String(existing.conversationId) !== String(conversationId)) {
           throw new AppError(409, ERROR_CODES.INVALID_STATE, 'Message id already used');
@@ -342,33 +347,35 @@ export function createConversationService({ logger, media, push }) {
         return { message: await serializeMessage(existing), duplicate: true };
       }
 
-      const member = await requireMember(me, conversationId);
-      if (!(await canSend(me, member))) throw notFriends();
-      await checkEnvelope(member, envelope);
-      if (replyToId) {
-        const original = await Message.findOne({ _id: replyToId, conversationId });
-        if (!original || original.unsentAt) {
-          throw new AppError(400, ERROR_CODES.INVALID_STATE, 'You can’t reply to this message');
-        }
+      const [allowed, , original, attachments] = await Promise.all([
+        canSend(me, member),
+        checkEnvelope(member, envelope),
+        replyToId ? Message.findOne({ _id: replyToId, conversationId }) : null,
+        attachmentIds?.length ? media.readyForMessage(me, conversationId, attachmentIds) : [],
+      ]);
+      if (!allowed) throw notFriends();
+      if (replyToId && (!original || original.unsentAt)) {
+        throw new AppError(400, ERROR_CODES.INVALID_STATE, 'You can’t reply to this message');
       }
-      const attachments = attachmentIds?.length
-        ? await media.readyForMessage(me, conversationId, attachmentIds)
-        : [];
       const type = attachments.length ? 'media' : 'e2ee';
 
       let created;
       try {
         // Retried automatically by the driver on transient write conflicts (concurrent sends).
         await mongoose.connection.transaction(async (session) => {
+          // The message's id is chosen first, so the conversation is updated in one step.
+          const messageId = new mongoose.Types.ObjectId();
+          const now = new Date();
           const conversation = await Conversation.findOneAndUpdate(
             { _id: conversationId },
-            { $inc: { lastSeq: 1 } },
+            { $inc: { lastSeq: 1 }, $set: { lastMessageId: messageId, lastMessageAt: now } },
             { returnDocument: 'after', session },
           );
           const seq = conversation.lastSeq;
           [created] = await Message.create(
             [
               {
+                _id: messageId,
                 conversationId,
                 seq,
                 senderId: me._id,
@@ -389,7 +396,8 @@ export function createConversationService({ logger, media, push }) {
             ],
             { session },
           );
-          if (attachments.length) {
+          const claimAttachments = async () => {
+            if (!attachments.length) return;
             // Each upload can be sent once; a concurrent send of the same files aborts here.
             const claimed = await Attachment.updateMany(
               { _id: { $in: attachments.map((a) => a._id) }, status: 'ready' },
@@ -399,22 +407,26 @@ export function createConversationService({ logger, media, push }) {
             if (claimed.modifiedCount !== attachments.length) {
               throw new AppError(409, ERROR_CODES.INVALID_STATE, 'These files were already sent');
             }
-          }
-          await Conversation.updateOne(
-            { _id: conversationId },
-            { $set: { lastMessageId: created._id, lastMessageAt: created.createdAt } },
-            { session },
-          );
-          await ConversationMember.updateMany(
-            { conversationId },
-            { $set: { lastMessageAt: created.createdAt } },
-            { session },
-          );
-          // Replying means I have seen the conversation: everything up to my message is read.
-          await ConversationMember.updateOne(
-            { _id: member._id },
-            { $max: { deliveredUpToSeq: seq, readUpToSeq: seq } },
-            { session },
+          };
+          // Sequential inside the transaction (one session), but each is a single round trip.
+          await claimAttachments();
+          await ConversationMember.bulkWrite(
+            [
+              {
+                updateMany: {
+                  filter: { conversationId },
+                  update: { $set: { lastMessageAt: now } },
+                },
+              },
+              // Replying means I have seen the conversation: everything up to my message is read.
+              {
+                updateOne: {
+                  filter: { _id: member._id },
+                  update: { $max: { deliveredUpToSeq: seq, readUpToSeq: seq } },
+                },
+              },
+            ],
+            { session, ordered: true },
           );
         });
       } catch (err) {
@@ -424,8 +436,8 @@ export function createConversationService({ logger, media, push }) {
         throw err;
       }
 
-      const message = await serializeMessage(created);
-      const memberIds = await memberIdsOf(conversationId);
+      // The quoted original was loaded above: no extra lookup before telling everyone.
+      const message = toMessage(created, original);
       for (const userId of memberIds) emitToUser(userId, SERVER_EVENTS.MESSAGE_NEW, { message });
       // Not awaited: sending to push services must never slow down or fail the send.
       for (const recipientId of memberIds.filter((id) => !id.equals(me._id))) {
@@ -433,8 +445,11 @@ export function createConversationService({ logger, media, push }) {
           ?.messageSent({ message: created, sender: me, recipientId })
           .catch((err) => logger.warn({ err }, 'Push failed'));
       }
+      // My read position moved: update ticks without making the sender wait for it.
       if (member.readUpToSeq < message.seq - 1) {
-        await announceRead(me, await ConversationMember.findById(member._id));
+        ConversationMember.findById(member._id)
+          .then((updated) => announceRead(me, updated))
+          .catch((err) => logger.warn({ err }, 'Read update failed'));
       }
       return { message, duplicate: false };
     },

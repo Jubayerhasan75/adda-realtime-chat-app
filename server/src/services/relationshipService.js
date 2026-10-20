@@ -50,8 +50,10 @@ export async function relationshipsFor(meId, otherIds) {
  * (docs/REQUIREMENTS.md D1).
  */
 export async function canMessage(aId, bId) {
-  const friendship = await Friendship.exists({ pairKey: pairKeyOf(aId, bId), status: 'accepted' });
-  if (!friendship) return false;
-  const { iBlocked, blockedMe } = await blockStatus(aId, bId);
-  return !iBlocked && !blockedMe;
+  // Both checks at once: every database round trip adds delay to sending.
+  const [friendship, { iBlocked, blockedMe }] = await Promise.all([
+    Friendship.exists({ pairKey: pairKeyOf(aId, bId), status: 'accepted' }),
+    blockStatus(aId, bId),
+  ]);
+  return Boolean(friendship) && !iBlocked && !blockedMe;
 }
