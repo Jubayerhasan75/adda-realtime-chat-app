@@ -22,8 +22,11 @@ export function createQueryClient() {
       queries: {
         staleTime: 30_000,
         // Client errors (4xx) won't succeed on retry; network/5xx errors might.
+        // A request that already waited the full timeout isn't retried (no endless waiting).
         retry: (failureCount, error) =>
-          failureCount < 2 && !(error?.status >= 400 && error?.status < 500),
+          failureCount < 2 &&
+          error?.code !== 'TIMEOUT' &&
+          !(error?.status >= 400 && error?.status < 500),
       },
     },
   });

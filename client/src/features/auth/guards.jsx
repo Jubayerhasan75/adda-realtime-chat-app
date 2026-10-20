@@ -1,5 +1,5 @@
 import { WifiOff } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Navigate, Outlet, useLocation, useSearchParams } from 'react-router';
 import { Button } from '../../components/ui/Button.jsx';
 import { EmptyState } from '../../components/ui/EmptyState.jsx';
@@ -15,6 +15,11 @@ import { useSyncAccountTheme } from './useSyncAccountTheme.js';
  * endless spinner say so; it continues by itself as soon as the connection is back.
  */
 function FullScreenLoading({ offline = false }) {
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setSlow(true), SLOW_START_MS);
+    return () => clearTimeout(timer);
+  }, []);
   if (offline) {
     return (
       <div role="status" className="flex h-full items-center justify-center bg-bg">
@@ -27,12 +32,25 @@ function FullScreenLoading({ offline = false }) {
     );
   }
   return (
-    <div role="status" className="flex h-full items-center justify-center gap-2 bg-bg text-muted">
-      <Spinner className="size-5" />
-      <span>Loading…</span>
+    <div
+      role="status"
+      className="flex h-full flex-col items-center justify-center gap-2 bg-bg px-6 text-center text-muted"
+    >
+      <span className="flex items-center gap-2">
+        <Spinner className="size-5" />
+        <span>{slow ? 'Waking up the server…' : 'Loading…'}</span>
+      </span>
+      {slow && (
+        <span className="max-w-xs text-sm">
+          The server sleeps when nobody uses it for a while. Starting it again can take up to a
+          minute.
+        </span>
+      )}
     </div>
   );
 }
+
+const SLOW_START_MS = 5_000;
 
 /**
  * Session check failed (offline, server asleep or down): explain and offer a retry. When the
