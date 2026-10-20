@@ -4,7 +4,7 @@
 
 It runs in any modern browser and installs like a native app on **Android, iPhone/iPad (iOS 16.4+), Windows, macOS and Linux**. You get a home-screen icon, a full-screen window, push notifications and in-app updates, with no app store needed.
 
-> **Status:** actively developed. Messaging, friends, media, notifications, presence, the installable app and end-to-end encrypted messages are complete. End-to-end encryption for photos and videos is in progress. Progress is logged in [docs/STATUS.md](docs/STATUS.md).
+> **Status:** actively developed. Messaging, groups, friends, notifications, presence, the installable app, and end-to-end encrypted messages, photos and videos are complete. Progress is logged in [docs/STATUS.md](docs/STATUS.md).
 
 ---
 
@@ -49,7 +49,7 @@ It runs in any modern browser and installs like a native app on **Android, iPhon
 - **Pin** important messages; search messages inside a chat (on the device).
 - **Media and links** in each chat's info, like Messenger: every photo and video in a grid, and every shared link with who sent it and a jump back to the message. Links in messages are tappable and open safely in a new tab (only web links; found on the device, since messages are encrypted).
 - Emoji keyboard with recently used emojis, and a **GIF** picker (powered by KLIPY).
-- **Photos and videos:** several at once with a caption, a full-screen viewer and swiping between items, and **Download** in full quality. iPhone HEIC photos and HEVC videos are supported (they download as JPEG and MP4), up to 100 MB per video.
+- **Photos and videos:** several at once with a caption, a full-screen viewer and swiping between items, and **Download**. End-to-end encrypted: photos are resized on the phone, then encrypted with a preview; videos up to 100 MB are encrypted and sent in parts. They are decrypted only on the receiving phone.
 - **Offline-safe sending:** messages written without internet wait in an outbox and send automatically when you're back online, never twice.
 - Unread counts and badges, a "jump to newest" button with a count of new messages, and per-chat **mute** and **chat colour**.
 - **Long-press a chat** to peek at the latest messages and photos without marking them as seen, or to **delete the whole chat** from your list.
@@ -178,11 +178,11 @@ Security was designed in from the start: threat model first, then code, then tes
 - Each user's device creates an **ECDH P-256** identity key pair. The private key is stored on the device as a **non-extractable** key, so even the app's own scripts can't export it.
 - Two friends derive the same chat key on their own devices (ECDH + **HKDF-SHA-256**). The key never travels over the network.
 - Each message is encrypted with **AES-256-GCM** and a fresh random IV. The chat, sender and message ids are bound into the encryption, so a message can't be moved, swapped or replayed into another chat without being detected.
-- **What gets encrypted:** text, captions, edits, reply quotes and the chosen GIF. The server stores and forwards only encrypted envelopes and **can't read them**.
+- **What gets encrypted:** text, captions, edits, reply quotes, the chosen GIF, and **photos and videos** (with their previews, sizes and length). The server stores and forwards only encrypted envelopes and encrypted file parts, and **can't read or view them**. Each file has its own key, carried inside the encrypted message; files are encrypted in 1 MB chunks so any change, reordering or cut-off is detected.
 - **New devices:** your keys are backed up **encrypted with your recovery password** (at least 6 characters with uppercase, lowercase, a number and a symbol) using **Argon2id** (64 MiB memory, 3 passes), which makes every guess slow and expensive. The server only holds this locked backup.
 - Changing or resetting encryption keys requires your account password, is recorded in the security log, and triggers an email alert.
 - Only standard, well-reviewed cryptography is used: the browser's built-in Web Crypto plus an established Argon2 implementation. No home-made algorithms.
-- **Honest limits** are documented: the server still sees metadata such as who chats with whom and when (as in every messenger), there's no forward secrecy yet, and photo/video encryption is in progress. See [docs/E2EE.md](docs/E2EE.md).
+- **Honest limits** are documented: the server still sees metadata such as who chats with whom and when (as in every messenger), and there's no forward secrecy yet. See [docs/E2EE.md](docs/E2EE.md).
 
 ### Accounts and sessions
 

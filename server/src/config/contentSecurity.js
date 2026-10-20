@@ -23,7 +23,8 @@ export function cspDirectives({ mediaHosts = [], connectHosts = [], isHttps = fa
     imgSrc: ["'self'", 'data:', 'blob:', ...mediaHosts],
     mediaSrc: ["'self'", 'blob:', ...mediaHosts],
     fontSrc: ["'self'"],
-    connectSrc: ["'self'", ...connectHosts],
+    // blob: = decrypted files saved from the page itself.
+    connectSrc: ["'self'", 'blob:', ...connectHosts],
     workerSrc: ["'self'"],
     manifestSrc: ["'self'"],
     objectSrc: ["'none'"],

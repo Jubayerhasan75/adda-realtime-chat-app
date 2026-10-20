@@ -20,7 +20,7 @@ describe('vercel.json for the Vercel + Render setup', () => {
     expect(csp).toContain("frame-ancestors 'none'");
     expect(csp).toContain("object-src 'none'");
     expect(csp).toContain(
-      "connect-src 'self' https://adda-api.onrender.com wss://adda-api.onrender.com https://api.cloudinary.com https://res.cloudinary.com https://api.klipy.com",
+      "connect-src 'self' blob: https://adda-api.onrender.com wss://adda-api.onrender.com https://api.cloudinary.com https://res.cloudinary.com https://api.klipy.com",
     );
     expect(csp).toContain(
       "img-src 'self' data: blob: https://res.cloudinary.com https://static.klipy.com",

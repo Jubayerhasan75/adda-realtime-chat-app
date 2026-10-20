@@ -41,7 +41,11 @@ Everything uses the browser's built-in **Web Crypto API** (free, audited, no key
 - **Envelope** stored by the server (opaque to it): `{v: 1, sk: senderKeyId, rk: recipientKeyId, iv, ct}`. The plaintext is JSON: `{text?, gif?, attachments?: [{id, name, mime, size, width, height, durationMs, key, parts, thumb?}]}`.
 - Edits replace the envelope (new IV). Unsend deletes it.
 
-## 4. Photos and videos
+## 4. Photos and videos (implemented 2026-10-21)
+
+- Photos larger than 2048 px or 1.5 MB are resized to JPEG on the sender's phone first (GIFs keep their animation). HEIC photos that the browser can't decode are sent as they are, without a preview.
+- Both phones check the real file type from its first bytes (the sender before encrypting, the receiver after decrypting).
+- Profile photos are not end-to-end encrypted: they are part of the public profile.
 
 - Each file gets its own random AES-256-GCM key. It is encrypted in 1 MiB chunks (each chunk has its own IV = base IV + counter, and the tag protects order and length).
 - The encrypted file is uploaded as Cloudinary **raw** pieces of up to 9.5 MB each (the free plan's limit is 10 MB per raw file), so videos can be up to 100 MB.
