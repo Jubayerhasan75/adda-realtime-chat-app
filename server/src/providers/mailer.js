@@ -16,6 +16,50 @@ export function parseSender(from) {
 }
 
 /**
+ * Mailjet's HTTPS API (port 443): works where SMTP ports are blocked. The sender address must
+ * be verified in Mailjet (Account → Sender addresses). Keys never appear in logs or errors.
+ */
+function createMailjetMailer(env, logger) {
+  const auth = `Basic ${Buffer.from(`${env.MAILJET_API_KEY}:${env.MAILJET_SECRET_KEY}`).toString('base64')}`;
+  const call = async (path, init = {}) => {
+    const response = await fetch(`https://api.mailjet.com${path}`, {
+      ...init,
+      headers: { authorization: auth, 'content-type': 'application/json' },
+      signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
+    });
+    if (!response.ok) {
+      const detail = await response.json().catch(() => ({}));
+      const reason = detail.ErrorMessage ?? detail.Messages?.[0]?.Errors?.[0]?.ErrorMessage ?? '';
+      throw new Error(`Mailjet ${path} failed: ${response.status} ${reason}`.trim());
+    }
+    return response;
+  };
+  return {
+    /** Checks the keys at start-up. */
+    async verify() {
+      await call('/v3/REST/sender?Limit=1');
+    },
+    async send(mail) {
+      const sender = parseSender(env.MAIL_FROM);
+      await call('/v3.1/send', {
+        method: 'POST',
+        body: JSON.stringify({
+          Messages: [
+            {
+              From: { Email: sender.email, Name: sender.name },
+              To: [{ Email: mail.to }],
+              Subject: mail.subject,
+              TextPart: mail.text,
+            },
+          ],
+        }),
+      });
+      logger.info({ subject: mail.subject }, 'Email sent');
+    },
+  };
+}
+
+/**
  * Brevo's HTTPS API (port 443): works where SMTP ports are blocked. The sender address must
  * be verified in Brevo (Senders & IPs). The API key never appears in logs or errors.
  */
@@ -94,6 +138,7 @@ export function createMailer(env, logger) {
   }
 
   if (env.MAIL_TRANSPORT === 'brevo') return createBrevoMailer(env, logger);
+  if (env.MAIL_TRANSPORT === 'mailjet') return createMailjetMailer(env, logger);
 
   const transport = nodemailer.createTransport({
     host: env.SMTP_HOST,

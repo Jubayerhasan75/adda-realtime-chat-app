@@ -41,6 +41,29 @@ describe('Brevo email API', () => {
     expect(error.message).not.toContain(env.BREVO_API_KEY);
   });
 
+  it('Mailjet: sends over HTTPS with the keys as Basic auth and the sender "Adda"', async () => {
+    const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const mailjet = {
+      MAIL_TRANSPORT: 'mailjet',
+      MAILJET_API_KEY: 'public-key-1234',
+      MAILJET_SECRET_KEY: 'secret-key-5678',
+      MAIL_FROM: 'Adda <no-reply@adda.example>',
+    };
+    await createMailer(mailjet, logger).send({ to: 'arif@example.com', subject: 'Hi', text: 'L' });
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('https://api.mailjet.com/v3.1/send');
+    expect(init.headers.authorization).toBe(
+      `Basic ${Buffer.from('public-key-1234:secret-key-5678').toString('base64')}`,
+    );
+    expect(JSON.parse(init.body).Messages[0]).toEqual({
+      From: { Email: 'no-reply@adda.example', Name: 'Adda' },
+      To: [{ Email: 'arif@example.com' }],
+      Subject: 'Hi',
+      TextPart: 'L',
+    });
+  });
+
   it('reads "Name <email>" senders', () => {
     expect(parseSender('Adda <a@b.com>')).toEqual({ name: 'Adda', email: 'a@b.com' });
     expect(parseSender('a@b.com')).toEqual({ email: 'a@b.com' });

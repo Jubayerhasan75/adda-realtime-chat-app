@@ -29,8 +29,11 @@ const envSchema = z
     // Email (docs/SETUP.md step 4). console = print links to the terminal (development only),
     // memory = keep in RAM for automated tests, smtp = really send.
     // brevo = Brevo's HTTPS email API (for hosts that block SMTP ports, like Render's free plan).
-    MAIL_TRANSPORT: z.enum(['console', 'memory', 'smtp', 'brevo']).optional(),
+    // mailjet = Mailjet's HTTPS email API (same reason; no phone verification needed).
+    MAIL_TRANSPORT: z.enum(['console', 'memory', 'smtp', 'brevo', 'mailjet']).optional(),
     BREVO_API_KEY: z.string().trim().min(20).optional(),
+    MAILJET_API_KEY: z.string().trim().min(10).optional(),
+    MAILJET_SECRET_KEY: z.string().trim().min(10).optional(),
     MAIL_FROM: z.string().min(3).default('Adda <no-reply@localhost>'),
     SMTP_HOST: z.string().optional(),
     SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(587),
@@ -95,10 +98,18 @@ const envSchema = z
     message: 'must be a real sender address in production, e.g. Adda <no-reply@yourdomain>',
   })
   .refine(
-    (env) => env.NODE_ENV !== 'production' || ['smtp', 'brevo'].includes(env.MAIL_TRANSPORT),
+    (env) =>
+      env.NODE_ENV !== 'production' || ['smtp', 'brevo', 'mailjet'].includes(env.MAIL_TRANSPORT),
     {
       path: ['MAIL_TRANSPORT'],
-      message: 'must be smtp or brevo in production (console/memory never deliver email)',
+      message: 'must be smtp, brevo or mailjet in production (console/memory never deliver email)',
+    },
+  )
+  .refine(
+    (env) => env.MAIL_TRANSPORT !== 'mailjet' || (env.MAILJET_API_KEY && env.MAILJET_SECRET_KEY),
+    {
+      path: ['MAILJET_API_KEY'],
+      message: 'MAILJET_API_KEY and MAILJET_SECRET_KEY are required when MAIL_TRANSPORT=mailjet',
     },
   )
   .refine((env) => env.MAIL_TRANSPORT !== 'brevo' || env.BREVO_API_KEY, {
