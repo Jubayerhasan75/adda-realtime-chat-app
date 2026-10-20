@@ -248,15 +248,25 @@ describe('clear chat, mute and colors', () => {
     expect((await history(nadia)).map((m) => envelopeLabel(m.envelope))).toEqual(['new']);
   });
 
-  it('mute and color are personal settings of this chat', async () => {
+  it('mute is personal; the color is shared by both and announced in the chat', async () => {
     const until = new Date(Date.now() + 8 * 3600_000).toISOString();
 
     const res = await as(nadia)
       .patch(`/api/conversations/${chat}/settings`, { mutedUntil: until, accent: 'ocean' })
       .expect(200);
-
     expect(res.body.data.myState).toMatchObject({ mutedUntil: until, accent: 'ocean' });
-    expect((await summary(arif)).myState).toMatchObject({ mutedUntil: null, accent: null });
+    expect((await summary(arif)).myState).toMatchObject({ mutedUntil: null, accent: 'ocean' });
+    const [notice] = (await history(arif)).slice(-1);
+    expect(notice).toMatchObject({
+      type: 'system',
+      senderId: nadia.user.id,
+      system: { action: 'theme', name: 'ocean' },
+    });
+
+    // Choosing the same color again adds no second notice.
+    await as(arif).patch(`/api/conversations/${chat}/settings`, { accent: 'ocean' }).expect(200);
+    expect((await history(arif)).filter((m) => m.type === 'system')).toHaveLength(1);
+
     await as(nadia).patch(`/api/conversations/${chat}/settings`, { accent: 'neon' }).expect(400);
     // Any color as #rrggbb, but never other CSS.
     const custom = await as(nadia)
@@ -267,6 +277,61 @@ describe('clear chat, mute and colors', () => {
       await as(nadia).patch(`/api/conversations/${chat}/settings`, { accent: bad }).expect(400);
     }
     await as(sadia).patch(`/api/conversations/${chat}/settings`, { accent: 'ocean' }).expect(404);
+  });
+});
+
+describe('nicknames', () => {
+  it('are set and cleared encrypted, with a notice both people can decrypt', async () => {
+    const clientMessageId = randomUUID();
+    const set = await as(nadia)
+      .put(`/api/conversations/${chat}/nicknames/${arif.user.id}`, {
+        clientMessageId,
+        envelope: fakeEnvelope('Rafi bhai'),
+      })
+      .expect(200);
+    expect(set.body.data.nicknames).toEqual([
+      {
+        userId: arif.user.id,
+        setBy: nadia.user.id,
+        clientMessageId,
+        envelope: fakeEnvelope('Rafi bhai'),
+      },
+    ]);
+    expect((await summary(arif)).nicknames).toHaveLength(1);
+    const [notice] = (await history(arif)).slice(-1);
+    expect(notice).toMatchObject({
+      type: 'system',
+      clientMessageId,
+      envelope: fakeEnvelope('Rafi bhai'),
+      system: { action: 'nickname', targetIds: [arif.user.id] },
+    });
+
+    // Clearing it: no nickname left, and a notice without an envelope.
+    await as(arif)
+      .put(`/api/conversations/${chat}/nicknames/${arif.user.id}`, {
+        clientMessageId: randomUUID(),
+        envelope: null,
+      })
+      .expect(200);
+    expect((await summary(nadia)).nicknames).toEqual([]);
+    expect((await history(nadia)).at(-1)).toMatchObject({
+      envelope: null,
+      system: { action: 'nickname', targetIds: [arif.user.id] },
+    });
+
+    // Only for people in the chat, and only by members.
+    await as(nadia)
+      .put(`/api/conversations/${chat}/nicknames/${sadia.user.id}`, {
+        clientMessageId: randomUUID(),
+        envelope: null,
+      })
+      .expect(404);
+    await as(sadia)
+      .put(`/api/conversations/${chat}/nicknames/${arif.user.id}`, {
+        clientMessageId: randomUUID(),
+        envelope: null,
+      })
+      .expect(404);
   });
 });
 

@@ -3,6 +3,7 @@ import {
   conversationSettingsSchema,
   mediaHistorySchema,
   messageHistorySchema,
+  nicknameSchema,
   readBodySchema,
   sendMessageBodySchema,
   startConversationSchema,
@@ -36,6 +37,12 @@ export function createConversationsRouter(limits) {
   router.get('/:conversationId/pins', messages.listPins);
   router.post('/:conversationId/clear', messages.clearChat);
   router.delete('/:conversationId', messages.deleteChat);
+  router.put(
+    '/:conversationId/nicknames/:userId',
+    limits.messageActions,
+    validateBody(nicknameSchema),
+    messages.setNickname,
+  );
   router.patch(
     '/:conversationId/settings',
     validateBody(conversationSettingsSchema),

@@ -84,3 +84,42 @@ test('chat color (preset or any color) recolors my bubbles; a background is kept
   expect(errors).toEqual([]);
   await Promise.all([nadia.context.close(), arif.context.close()]);
 });
+
+test('a color change and nicknames show up for both people as notices', async ({ browser }) => {
+  const nadia = await person(browser, 'nadia_nk', 'Nadia');
+  const arif = await person(browser, 'arif_nk', 'Arif');
+  const errors = [nadia.page, arif.page].map(trackConsoleErrors);
+  const chat = await befriendAndOpenChat(nadia, arif);
+  await sendText(arif, chat, 'Hi');
+  await Promise.all([nadia.page.goto(`/chats/${chat}`), arif.page.goto(`/chats/${chat}`)]);
+  const arifLog = arif.page.getByRole('log', { name: 'Messages' });
+
+  await nadia.page.getByRole('button', { name: 'Chat options' }).click();
+  const options = nadia.page.getByRole('dialog', { name: 'Chat options' });
+  await options.getByText('Forest', { exact: true }).click();
+  await expect(arifLog.getByText('Nadia changed the chat color to Forest')).toBeVisible();
+  // The color is shared: Arif's own bubbles turn green too.
+  await expect
+    .poll(() =>
+      arifLog
+        .getByText('Hi', { exact: true })
+        .locator('xpath=ancestor::div[contains(@class,"rounded-bubble")][1]')
+        .evaluate((el) => getComputedStyle(el).backgroundColor),
+    )
+    .toBe('rgb(29, 102, 80)');
+
+  // Nadia gives Arif a nickname: encrypted, and shown in both chats.
+  await options.getByRole('button', { name: 'Nicknames' }).click();
+  await options.getByRole('button', { name: 'Edit nickname for Arif' }).click();
+  await options.getByLabel('Nickname for Arif').fill('Rafi bhai');
+  await options.getByRole('button', { name: 'Save' }).click();
+  await options.getByRole('button', { name: 'Close' }).click();
+  await expect(nadia.page.getByRole('heading', { name: 'Rafi bhai' })).toBeVisible();
+  await expect(arifLog.getByText('Nadia set your nickname to “Rafi bhai”')).toBeVisible();
+
+  const stored = (await arif.api.get(`/api/conversations/${chat}`)).nicknames;
+  expect(JSON.stringify(stored)).not.toContain('Rafi');
+
+  expect(errors.flat()).toEqual([]);
+  await Promise.all([nadia.context.close(), arif.context.close()]);
+});

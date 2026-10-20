@@ -45,6 +45,17 @@ export async function deleteChat(req, res) {
   res.status(204).end();
 }
 
+export async function setNickname(req, res) {
+  res.json({
+    data: await conversations(req).setNickname(
+      me(req),
+      req.params.conversationId,
+      req.params.userId,
+      req.body,
+    ),
+  });
+}
+
 export async function updateSettings(req, res) {
   res.json({
     data: await conversations(req).updateSettings(me(req), req.params.conversationId, req.body),

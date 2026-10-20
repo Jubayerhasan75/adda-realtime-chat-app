@@ -9,6 +9,7 @@ import { User } from '../models/User.js';
 import { AppError } from '../utils/AppError.js';
 import {
   canSend,
+  conversationNotFound,
   emitToMembers,
   isGroupMember,
   memberIdsOf,
@@ -19,6 +20,7 @@ import {
 } from './conversationAccess.js';
 import { serializeMessage, serializeMessages, toMessage } from './messageView.js';
 import { emitToUser } from './realtime.js';
+import { addSystemMessage, announce } from './systemMessages.js';
 import { blockedIdsFor, canMessage } from './relationshipService.js';
 import { toPublicUser } from './userService.js';
 
@@ -57,7 +59,7 @@ async function summarize(me, members) {
 
   const [conversations, otherMembers, friendships, blocked] = await Promise.all([
     Conversation.find({ _id: { $in: conversationIds } }).select(
-      'type lastSeq name photo keyEpoch rotationNeeded',
+      'type lastSeq name photo keyEpoch rotationNeeded accent nicknames',
     ),
     ConversationMember.find({ conversationId: { $in: conversationIds }, userId: { $ne: me._id } }),
     Friendship.find({ userIds: me._id, status: 'accepted' }).select('userIds'),
@@ -126,8 +128,15 @@ async function summarize(me, members) {
           readUpToSeq: member.readUpToSeq,
           mutedUntil: member.mutedUntil,
           muted: Boolean(member.mutedUntil && member.mutedUntil > new Date()),
-          accent: member.accent,
+          // The chat's shared color (older chats may still have a personal one).
+          accent: conversation?.accent ?? member.accent ?? null,
         },
+        nicknames: (conversation?.nicknames ?? []).map((entry) => ({
+          userId: String(entry.userId),
+          setBy: String(entry.setBy),
+          clientMessageId: entry.clientMessageId,
+          envelope: entry.envelope,
+        })),
       };
 
       if (isGroupMember(member)) {
@@ -526,13 +535,79 @@ export function createConversationService({ logger, media, push }) {
       });
     },
 
-    /** My mute and color for this chat only; synced to my other devices. */
-    async updateSettings(me, conversationId, changes) {
+    /**
+     * Mute is mine only (synced to my devices). The color is shared by everyone in the chat:
+     * changing it adds a notice, like Messenger.
+     */
+    async updateSettings(me, conversationId, { accent, ...mine }) {
       const member = await requireMember(me, conversationId);
-      await ConversationMember.updateOne({ _id: member._id }, { $set: changes });
-      emitToUser(me._id, SERVER_EVENTS.CONVERSATION_UPDATED, {
-        conversationId: String(conversationId),
+      if (Object.keys(mine).length) {
+        await ConversationMember.updateOne({ _id: member._id }, { $set: mine });
+        emitToUser(me._id, SERVER_EVENTS.CONVERSATION_UPDATED, {
+          conversationId: String(conversationId),
+        });
+      }
+      if (accent !== undefined) {
+        if (!(await canSend(me, member))) throw notFriends();
+        const conversation = await Conversation.findById(conversationId).select('accent');
+        if ((conversation.accent ?? member.accent ?? null) !== accent) {
+          let notice;
+          await mongoose.connection.transaction(async (session) => {
+            await Conversation.updateOne(
+              { _id: conversationId },
+              { $set: { accent } },
+              { session },
+            );
+            await ConversationMember.updateMany(
+              { conversationId },
+              { $set: { accent: null } },
+              { session },
+            );
+            notice = await addSystemMessage(
+              conversationId,
+              me._id,
+              { action: 'theme', name: accent },
+              session,
+            );
+          });
+          await announce(conversationId, notice);
+        }
+      }
+      return this.getConversation(me, conversationId);
+    },
+
+    /** Sets (encrypted) or clears someone's nickname in this chat, with a notice. */
+    async setNickname(me, conversationId, userId, { clientMessageId, envelope }) {
+      const member = await requireMember(me, conversationId);
+      if (!(await canSend(me, member))) throw notFriends();
+      if (!mongoose.isValidObjectId(userId)) throw conversationNotFound();
+      const target = await ConversationMember.exists({ conversationId, userId });
+      if (!target) throw new AppError(404, ERROR_CODES.NOT_FOUND, 'Not in this chat');
+      if (envelope) await checkEnvelope(member, envelope);
+
+      let notice;
+      await mongoose.connection.transaction(async (session) => {
+        await Conversation.updateOne(
+          { _id: conversationId },
+          { $pull: { nicknames: { userId } } },
+          { session },
+        );
+        if (envelope) {
+          await Conversation.updateOne(
+            { _id: conversationId },
+            { $push: { nicknames: { userId, setBy: me._id, clientMessageId, envelope } } },
+            { session },
+          );
+        }
+        notice = await addSystemMessage(
+          conversationId,
+          me._id,
+          { action: 'nickname', targetIds: [userId] },
+          session,
+          { envelope, clientMessageId },
+        );
       });
+      await announce(conversationId, notice);
       return this.getConversation(me, conversationId);
     },
   };

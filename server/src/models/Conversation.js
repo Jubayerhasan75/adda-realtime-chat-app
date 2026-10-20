@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { isChatAccent } from '@chat/shared';
 
 const { Schema } = mongoose;
 
@@ -29,6 +30,27 @@ const conversationSchema = new Schema(
       default: null,
     },
     createdBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+    // Shared by everyone in the chat (preset name or #rrggbb); null = default.
+    accent: {
+      type: String,
+      default: null,
+      validate: { validator: (value) => value === null || isChatAccent(value) },
+    },
+    // Nicknames, end-to-end encrypted: who set it and the notice's message id (for decryption).
+    nicknames: {
+      type: [
+        new Schema(
+          {
+            userId: { type: Schema.Types.ObjectId, required: true },
+            setBy: { type: Schema.Types.ObjectId, required: true },
+            clientMessageId: { type: String, required: true },
+            envelope: { type: Schema.Types.Mixed, required: true },
+          },
+          { _id: false },
+        ),
+      ],
+      default: [],
+    },
     // Number of the current group key; a new one is required after someone leaves.
     keyEpoch: { type: Number, default: 0 },
     rotationNeeded: { type: Boolean, default: false },

@@ -1,5 +1,18 @@
 import { HEX_COLOR } from '@chat/shared';
 
+export const ACCENT_LABELS = {
+  teakhelet: 'Purple',
+  ocean: 'Ocean',
+  forest: 'Forest',
+  sunset: 'Sunset',
+  rose: 'Rose',
+  graphite: 'Graphite',
+};
+
+/** "Ocean", or "a custom color" for #rrggbb. */
+export const colorName = (accent) =>
+  !accent ? 'the default' : (ACCENT_LABELS[accent] ?? 'a custom color');
+
 /** Readable text color (near-black or white) on a #rrggbb background. */
 export function textOn(hex) {
   const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);

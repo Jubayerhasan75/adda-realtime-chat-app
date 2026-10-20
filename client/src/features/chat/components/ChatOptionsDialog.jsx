@@ -17,6 +17,7 @@ import {
 } from '../api.js';
 import { ChatAppearance } from './ChatAppearance.jsx';
 import { GroupInfo } from './GroupInfo.jsx';
+import { Nicknames } from './Nicknames.jsx';
 
 const HOUR = 3600_000;
 const MUTE_OPTIONS = [
@@ -156,6 +157,8 @@ export function ChatOptionsDialog({
             Only affects you: no notifications from this chat while it’s muted.
           </p>
         </fieldset>
+
+        {(group || peer?.username) && <Nicknames conversation={conversation} />}
 
         <ChatAppearance
           conversation={conversation}

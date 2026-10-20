@@ -59,7 +59,17 @@ const messageSchema = new Schema(
         {
           action: {
             type: String,
-            enum: ['created', 'added', 'removed', 'left', 'renamed', 'photo', 'admin'],
+            enum: [
+              'created',
+              'added',
+              'removed',
+              'left',
+              'renamed',
+              'photo',
+              'admin',
+              'theme',
+              'nickname',
+            ],
             required: true,
           },
           targetIds: { type: [Schema.Types.ObjectId], default: [] },

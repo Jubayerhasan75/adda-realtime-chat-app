@@ -32,6 +32,15 @@ export const conversationSettingsSchema = z
   })
   .refine((data) => Object.keys(data).length > 0, 'Nothing to update');
 
+/**
+ * Set or clear someone's nickname in a chat. The nickname is end-to-end encrypted like a
+ * message (null clears it); the same envelope is shown in the chat's notice.
+ */
+export const nicknameSchema = z.strictObject({
+  clientMessageId: z.uuid('Invalid message id'),
+  envelope: anyEnvelopeSchema.nullable(),
+});
+
 export const messageSearchSchema = z.strictObject({
   q: z
     .string()

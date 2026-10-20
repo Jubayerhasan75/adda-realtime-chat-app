@@ -41,6 +41,12 @@ Everything uses the browser's built-in **Web Crypto API** (free, audited, no key
 - **Envelope** stored by the server (opaque to it): `{v: 1, sk: senderKeyId, rk: recipientKeyId, iv, ct}`. The plaintext is JSON: `{text?, gif?, attachments?: [{id, name, mime, size, width, height, durationMs, key, parts, thumb?}]}`.
 - Edits replace the envelope (new IV). Unsend deletes it.
 
+## 3a. Nicknames
+
+- A nickname is encrypted like a message (same keys and associated data, with the notice's
+  message id), so the server stores it only as an envelope. The chat color is not secret and is
+  stored as a plain setting.
+
 ## 4. Photos and videos (implemented 2026-10-21)
 
 - Photos larger than 2048 px or 1.5 MB are resized to JPEG on the sender's phone first (GIFs keep their animation). HEIC photos that the browser can't decode are sent as they are, without a preview.

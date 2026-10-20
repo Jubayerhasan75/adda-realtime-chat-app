@@ -99,6 +99,7 @@ export async function openMessage(message) {
       ...base,
       text: typeof content.text === 'string' ? content.text : null,
       gif: content.gif ?? null,
+      nickname: typeof content.nickname === 'string' ? content.nickname : null,
       // Photos/videos: the server lists the uploads; their details and keys are encrypted.
       attachments: mergeAttachments(message.attachments, content.attachments),
     };
@@ -124,10 +125,35 @@ function mergeAttachments(stored = [], decrypted = []) {
 export const openMessages = (messages) => Promise.all((messages ?? []).map(openMessage));
 
 /** Readable conversation summary (its last message decrypted). */
+/** userId → nickname, decrypted on this device (entries that can't be opened are skipped). */
+async function openNicknames(conversation) {
+  const names = {};
+  await Promise.all(
+    (conversation.nicknames ?? []).map(async (entry) => {
+      try {
+        const content = await decryptContent({
+          envelope: entry.envelope,
+          conversationId: conversation.id,
+          senderId: entry.setBy,
+          clientMessageId: entry.clientMessageId,
+        });
+        if (typeof content.nickname === 'string') names[entry.userId] = content.nickname;
+      } catch {
+        // not readable on this device
+      }
+    }),
+  );
+  return names;
+}
+
 export async function openConversation(conversation) {
   if (!conversation) return conversation;
   rememberConversation(conversation);
-  return { ...conversation, lastMessage: await openMessage(conversation.lastMessage) };
+  const [lastMessage, nicknameMap] = await Promise.all([
+    openMessage(conversation.lastMessage),
+    openNicknames(conversation),
+  ]);
+  return { ...conversation, lastMessage, nicknameMap };
 }
 
 /** Content → envelope for the other member, or for the group (docs/GROUPS.md §3). */

@@ -3,6 +3,7 @@ import { ImagePlus, Palette, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Alert } from '../../../components/ui/Alert.jsx';
 import { cn } from '../../../lib/cn.js';
+import { ACCENT_LABELS } from '../lib/chatTheme.js';
 import {
   DIM_LEVELS,
   WALLPAPER_PRESETS,
@@ -12,15 +13,6 @@ import {
   setWallpaperPreset,
   useWallpaper,
 } from '../wallpaper.js';
-
-const ACCENT_LABELS = {
-  teakhelet: 'Purple',
-  ocean: 'Ocean',
-  forest: 'Forest',
-  sunset: 'Sunset',
-  rose: 'Rose',
-  graphite: 'Graphite',
-};
 
 const swatch =
   'flex size-10 cursor-pointer items-center justify-center rounded-full peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-(--focus-ring)';
@@ -185,8 +177,8 @@ function ChatBackground({ userId, conversationId }) {
         </Alert>
       )}
       <p className="mt-2 text-xs text-muted">
-        Only you see the color and background. A background photo stays on this device and is never
-        uploaded.
+        Everyone in this chat sees the color. The background is only for you: a photo stays on this
+        device and is never uploaded.
       </p>
     </fieldset>
   );

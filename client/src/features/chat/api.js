@@ -367,3 +367,27 @@ export function useHistoryScan(conversationId, { enabled = true } = {}) {
     staleTime: 0,
   });
 }
+
+/** Set (encrypted on this device) or clear someone's nickname in a chat. */
+export function useSetNickname() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ conversationId, userId, nickname }) => {
+      const clientMessageId = crypto.randomUUID();
+      const envelope = nickname
+        ? await sealContent({ conversationId, clientMessageId, content: { nickname } })
+        : null;
+      return apiRequest(`/api/conversations/${conversationId}/nicknames/${userId}`, {
+        method: 'PUT',
+        body: { clientMessageId, envelope },
+      });
+    },
+    onSuccess: async (conversation) => {
+      queryClient.setQueryData(
+        CHAT_KEYS.conversation(conversation.id),
+        await openConversation(conversation),
+      );
+      queryClient.invalidateQueries({ queryKey: CHAT_KEYS.list });
+    },
+  });
+}

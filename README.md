@@ -51,7 +51,9 @@ It runs in any modern browser and installs like a native app on **Android, iPhon
 - Emoji keyboard with recently used emojis, and a **GIF** picker (powered by KLIPY).
 - **Photos and videos:** several at once with a caption, a full-screen viewer and swiping between items, and **Download**. End-to-end encrypted: photos are resized on the phone, then encrypted with a preview; videos up to 100 MB are encrypted and sent in parts. They are decrypted only on the receiving phone.
 - **Offline-safe sending:** messages written without internet wait in an outbox and send automatically when you're back online, never twice.
-- Unread counts and badges, a "jump to newest" button with a count of new messages, and per-chat **mute** and **chat colour**.
+- Unread counts and badges, a "jump to newest" button with a count of new messages, and per-chat **mute**.
+- **Chat themes**, like Messenger: a shared chat colour (presets or any colour) and **nicknames** for anyone in the chat, each change shown as a notice ("Nadia changed the chat color to Ocean"). Nicknames are end-to-end encrypted. A personal **background** (presets or your own photo, dimmed for readability) stays on your device only.
+- New messages slide smoothly into place.
 - **Long-press a chat** to peek at the latest messages and photos without marking them as seen, or to **delete the whole chat** from your list.
 - **Clear chat** and **delete chat**. Both affect only your own view; your friend keeps theirs.
 
