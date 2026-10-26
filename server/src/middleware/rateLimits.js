@@ -4,16 +4,26 @@ import { AppError } from '../utils/AppError.js';
 
 const MINUTE = 60 * 1000;
 
-function limiter({ windowMs, limit, key, message = 'Too many attempts. Please try again later.' }) {
+function limiter({
+  windowMs,
+  limit,
+  key,
+  skip,
+  message = 'Too many attempts. Please try again later.',
+}) {
   return rateLimit({
     windowMs,
     limit,
+    ...(skip ? { skip } : {}),
     standardHeaders: 'draft-8',
     legacyHeaders: false,
     keyGenerator: key,
     handler: (_req, _res, next) => next(new AppError(429, ERROR_CODES.RATE_LIMITED, message)),
   });
 }
+
+// GET /api/media/:id (mounted at /api, so the path here starts at /media).
+const isMediaView = (req) => req.method === 'GET' && /^\/media\/[a-f\d]{24}$/i.test(req.path);
 
 // IPv6 addresses are grouped by /56 subnet so one client can't rotate addresses to bypass limits.
 const byIp = (req) => ipKeyGenerator(req.ip);
@@ -54,6 +64,9 @@ export function createRateLimiters() {
       message: 'Too many uploads. Please try again later.',
     }),
     reports: limiter({ windowMs: 24 * 60 * MINUTE, limit: 10, key: byUser }),
-    general: limiter({ windowMs: MINUTE, limit: 300, key: byUser }),
+    // Viewing photos/videos has its own limit: an encrypted photo is several requests (preview
+    // and parts), so a photo-heavy chat must not use up the general allowance.
+    general: limiter({ windowMs: MINUTE, limit: 300, key: byUser, skip: isMediaView }),
+    mediaViews: limiter({ windowMs: MINUTE, limit: 1500, key: byUser }),
   };
 }

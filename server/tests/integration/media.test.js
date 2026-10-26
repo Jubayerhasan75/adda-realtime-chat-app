@@ -279,6 +279,15 @@ describe('sending and viewing', () => {
     await as(sadia).get(`/api/media/${attachmentId}?variant=download`).expect(404);
   });
 
+  it('loading many photos never uses up the general request allowance', async () => {
+    const { attachmentId } = await upload(nadia, PNG);
+    await sendMedia(nadia, [attachmentId]);
+    for (let i = 0; i < 310; i += 1) {
+      await as(arif).get(`/api/media/${attachmentId}?variant=thumb`).expect(302);
+    }
+    await as(arif).get('/api/conversations').expect(200);
+  });
+
   it('never shows media to someone outside the chat, or to a signed-out visitor', async () => {
     const { attachmentId } = await upload(nadia, PNG);
     await sendMedia(nadia, [attachmentId]);

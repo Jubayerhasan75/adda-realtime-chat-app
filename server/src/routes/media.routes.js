@@ -31,7 +31,7 @@ export function createMediaRouter(limits, { localStorage }) {
     media.completeUpload,
   );
   router.delete('/uploads/:attachmentId', media.cancelUpload);
-  router.get('/:attachmentId', validateQuery(mediaVariantSchema), media.view);
+  router.get('/:attachmentId', limits.mediaViews, validateQuery(mediaVariantSchema), media.view);
 
   return router;
 }
