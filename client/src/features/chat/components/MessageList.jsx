@@ -212,7 +212,9 @@ export function MessageList({
                   className="my-3 flex items-center gap-3 px-4 text-xs font-semibold text-link"
                 >
                   <span className="h-px flex-1 bg-current opacity-40" />
-                  Unread messages
+                  <span className="rounded-full bg-surface/90 px-3 py-1 shadow-sm backdrop-blur">
+                    Unread messages
+                  </span>
                   <span className="h-px flex-1 bg-current opacity-40" />
                 </div>
               );
@@ -222,9 +224,11 @@ export function MessageList({
                 <p
                   key={item.key}
                   id={`message-${item.message.id}`}
-                  className="mx-6 my-2 text-center text-xs text-muted"
+                  className="mx-6 my-2 text-center"
                 >
-                  {systemText(item.message, conversation, currentUserId)}
+                  <span className="inline-block rounded-2xl bg-surface/90 px-3 py-1 text-xs text-muted shadow-sm backdrop-blur">
+                    {systemText(item.message, conversation, currentUserId)}
+                  </span>
                 </p>
               );
             }
